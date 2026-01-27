@@ -190,6 +190,57 @@ def screen_app():
     c5.metric("Saldo (renda - total)", fmt_brl(saldo))
 
     st.divider()
+# ================= DASHBOARD =================
+if page == "📊 Dashboard":
+    st.subheader("📊 Dashboard")
+
+    if df.empty:
+        st.info("Sem dados para este mês/ano.")
+    else:
+        # normaliza categorias vazias
+        df_dash = df.copy()
+        df_dash["Categoria"] = df_dash["Categoria"].fillna("Sem categoria")
+        df_dash["Status"] = df_dash["Pago"].map({0: "Em aberto", 1: "Pago"})
+
+        col1, col2 = st.columns([2, 1])
+
+        with col1:
+            fig_cat = px.pie(
+                df_dash,
+                names="Categoria",
+                values="Valor",
+                title="Gastos por categoria"
+            )
+            st.plotly_chart(fig_cat, use_container_width=True)
+
+        with col2:
+            resumo_status = (
+                df_dash.groupby("Status", as_index=False)["Valor"]
+                .sum()
+            )
+            fig_status = px.bar(
+                resumo_status,
+                x="Status",
+                y="Valor",
+                title="Pago x Em aberto",
+                text_auto=True
+            )
+            st.plotly_chart(fig_status, use_container_width=True)
+
+        st.divider()
+
+        resumo_cat = (
+            df_dash.groupby("Categoria", as_index=False)["Valor"]
+            .sum()
+            .sort_values("Valor", ascending=False)
+        )
+
+        st.markdown("### 📌 Resumo por categoria")
+        st.dataframe(
+            resumo_cat,
+            use_container_width=True,
+            hide_index=True
+        )
 
 # -------------------- Router --------------------
 if st.session_state.user_id is None:
