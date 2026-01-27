@@ -1,73 +1,250 @@
 import streamlit as st
-from datetime import date
-import repos
+import pandas as pd
+import plotly.express as px
+from datetime import date, datetime
 
-st.set_page_config(page_title="Controle Financeiro", layout="wide")
+from database import init_db
+from auth import authenticate, create_user, get_security_question, reset_password
+import repos
+from export_utils import export_excel_bytes, export_pdf_bytes
+
+# -------------------- CONFIG --------------------
+st.set_page_config(page_title="Controle Financeiro", page_icon="💳", layout="wide")
+init_db()
 
 CATEGORIA_CARTAO = "Cartão de crédito"
 
-st.title("💳 Controle Financeiro")
+MESES = [
+    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
+]
 
-# ================== LOGIN SIMPLES ==================
+# -------------------- CSS --------------------
+def inject_css():
+    try:
+        with open("style.css", "r", encoding="utf-8") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    except:
+        pass
+
+inject_css()
+
+# -------------------- UI CONTROL (admin) --------------------
+def hide_share_only():
+    st.markdown(
+        """
+        <style>
+        button[title="Share"] {display:none !important;}
+        a[title="View source"] {display:none !important;}
+        a[title="Edit this app"] {display:none !important;}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+if st.session_state.get("username") != "carlos.martins":
+    hide_share_only()
+
+# -------------------- SESSION --------------------
 if "user_id" not in st.session_state:
-    st.session_state.user_id = 1  # exemplo fixo (ajuste depois)
+    st.session_state.user_id = None
+if "username" not in st.session_state:
+    st.session_state.username = None
+if "edit_id" not in st.session_state:
+    st.session_state.edit_id = None
 
-month = st.selectbox("Mês", list(range(1,13)))
-year = st.selectbox("Ano", list(range(2024,2030)))
+# -------------------- HELPERS --------------------
+def fmt(v):
+    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-# ================== CATEGORIAS ==================
-cats = repos.list_categories(st.session_state.user_id)
-cat_map = {name: cid for cid, name in cats}
+def parse_date(d):
+    try:
+        return datetime.fromisoformat(str(d)).date()
+    except:
+        return datetime.strptime(str(d), "%Y-%m-%d").date()
 
-# ================== ADICIONAR PAGAMENTO ==================
-st.subheader("➕ Novo lançamento")
+# -------------------- AUTH --------------------
+def screen_auth():
+    st.title("💳 Controle Financeiro")
 
-desc = st.text_input("Descrição")
-val = st.number_input("Valor total", min_value=0.0)
-cat = st.selectbox("Categoria", list(cat_map.keys()))
-parcelado = st.checkbox("Parcelado?")
-parcelas = st.number_input("Qtd parcelas", min_value=1, value=1)
+    tab1, tab2, tab3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
-if st.button("Salvar"):
-    if parcelado and parcelas > 1:
-        repos.create_installments(
-            st.session_state.user_id,
-            desc,
-            val,
-            parcelas,
-            month,
-            year,
-            cat_map[cat]
+    with tab1:
+        u = st.text_input("Usuário")
+        p = st.text_input("Senha", type="password")
+        if st.button("Entrar", use_container_width=True):
+            uid = authenticate(u, p)
+            if uid:
+                st.session_state.user_id = uid
+                st.session_state.username = u
+                st.rerun()
+            else:
+                st.error("Usuário ou senha inválidos")
+
+    with tab2:
+        u = st.text_input("Novo usuário")
+        p = st.text_input("Nova senha", type="password")
+        q = st.selectbox(
+            "Pergunta de segurança",
+            [
+                "Nome do primeiro pet?",
+                "Nome da mãe?",
+                "Cidade onde nasceu?",
+                "Filme favorito?"
+            ]
         )
+        a = st.text_input("Resposta")
+        if st.button("Criar conta", type="primary", use_container_width=True):
+            try:
+                create_user(u, p, q, a)
+                st.success("Conta criada! Faça login.")
+            except Exception as e:
+                st.error(str(e))
+
+    with tab3:
+        u = st.text_input("Usuário")
+        q = get_security_question(u) if u else None
+        if q:
+            st.info(q)
+            a = st.text_input("Resposta")
+            np = st.text_input("Nova senha", type="password")
+            if st.button("Redefinir senha", use_container_width=True):
+                if reset_password(u, a, np):
+                    st.success("Senha alterada!")
+                else:
+                    st.error("Resposta incorreta")
+
+# -------------------- MAIN APP --------------------
+def screen_app():
+    today = date.today()
+
+    with st.sidebar:
+        st.markdown(f"👤 **{st.session_state.username}**")
+        mes_nome = st.selectbox("Mês", MESES, index=today.month-1)
+        ano = st.selectbox("Ano", list(range(today.year-2, today.year+3)), index=2)
+        mes = MESES.index(mes_nome) + 1
+
+        page = st.radio(
+            "Menu",
+            ["🧾 Pagamentos", "🏷️ Categorias", "💰 Planejamento", "📊 Dashboard", "📤 Exportar"]
+        )
+
+        if st.button("Sair"):
+            st.session_state.user_id = None
+            st.session_state.username = None
+            st.rerun()
+
+    # ================= PAGAMENTOS =================
+    rows = repos.list_payments(st.session_state.user_id, mes, ano)
+
+    df_raw = pd.DataFrame(
+        rows,
+        columns=["id", "Descrição", "Valor", "Vencimento", "Pago", "Categoria"]
+    )
+
+    # ---- Consolida cartão ----
+    df_cartao = df_raw[df_raw["Categoria"] == CATEGORIA_CARTAO]
+    df_outros = df_raw[df_raw["Categoria"] != CATEGORIA_CARTAO]
+
+    if not df_cartao.empty:
+        fatura = {
+            "id": -1,
+            "Descrição": f"💳 Fatura Cartão ({mes_nome}/{ano})",
+            "Valor": df_cartao["Valor"].sum(),
+            "Vencimento": df_cartao["Vencimento"].max(),
+            "Pago": 1 if df_cartao["Pago"].all() else 0,
+            "Categoria": CATEGORIA_CARTAO
+        }
+        df = pd.concat([df_outros, pd.DataFrame([fatura])], ignore_index=True)
     else:
-        repos.add_payment(
-            st.session_state.user_id,
-            desc,
-            val,
-            "01",
-            month,
-            year,
-            cat_map[cat]
+        df = df_raw.copy()
+
+    st.title(f"{mes_nome}/{ano}")
+
+    # ================= PAGE: PAGAMENTOS =================
+    if page == "🧾 Pagamentos":
+        st.subheader("🧾 Pagamentos")
+
+        cats = repos.list_categories(st.session_state.user_id)
+        cat_map = {name: cid for cid, name in cats}
+        cat_names = list(cat_map.keys())
+
+        with st.expander("➕ Novo pagamento", expanded=True):
+            d = st.text_input("Descrição")
+            v = st.number_input("Valor total", min_value=0.0)
+            c = st.selectbox("Categoria", cat_names)
+            parcelado = st.checkbox("Parcelado?")
+            parcelas = st.number_input("Qtd parcelas", min_value=1, value=1)
+            ven = st.date_input("Vencimento")
+
+            if st.button("Salvar", type="primary"):
+                if parcelado and parcelas > 1:
+                    repos.add_installments(
+                        st.session_state.user_id,
+                        d,
+                        v,
+                        parcelas,
+                        mes,
+                        ano,
+                        cat_map[c]
+                    )
+                else:
+                    repos.add_payment(
+                        st.session_state.user_id,
+                        d,
+                        v,
+                        str(ven),
+                        mes,
+                        ano,
+                        cat_map[c]
+                    )
+                st.success("Lançamento criado")
+                st.rerun()
+
+        st.divider()
+
+        for _, row in df.iterrows():
+            a,b,c,d = st.columns([5,2,2,2])
+            a.write(f"**{row['Descrição']}**")
+            b.write(fmt(row["Valor"]))
+            c.write("✅ Pago" if row["Pago"] else "🕓 Aberto")
+
+            if row["id"] == -1:
+                if not row["Pago"]:
+                    if d.button("Pagar fatura", key="pay_fatura"):
+                        repos.mark_fatura_cartao(
+                            st.session_state.user_id,
+                            mes,
+                            ano,
+                            CATEGORIA_CARTAO
+                        )
+                        st.success("Fatura paga")
+                        st.rerun()
+            else:
+                if not row["Pago"]:
+                    if d.button("Marcar pago", key=f"pay_{row['id']}"):
+                        repos.mark_paid(st.session_state.user_id, row["id"], True)
+                        st.rerun()
+
+    # ================= PAGE: EXPORT =================
+    elif page == "📤 Exportar":
+        df_exp = df.copy()
+        df_exp["Pago"] = df_exp["Pago"].map({0:"Não",1:"Sim"})
+        st.dataframe(df_exp, use_container_width=True)
+
+        st.download_button(
+            "📊 Excel",
+            export_excel_bytes(df_exp),
+            file_name="pagamentos.xlsx"
         )
-    st.success("Lançamento criado")
-    st.rerun()
 
-# ================== FATURA ==================
-rows = repos.list_payments(st.session_state.user_id, month, year)
+    # ================= PAGE: DASHBOARD =================
+    elif page == "📊 Dashboard" and not df.empty:
+        fig = px.pie(df, names="Categoria", values="Valor", title="Gastos por categoria")
+        st.plotly_chart(fig, use_container_width=True)
 
-total_cartao = sum(r[2] for r in rows if cat == CATEGORIA_CARTAO)
-
-if total_cartao > 0:
-    st.divider()
-    st.subheader(f"💳 Fatura Cartão {month}/{year}")
-    st.write(f"Total: R$ {total_cartao:.2f}")
-
-    if st.button("Pagar fatura"):
-        repos.mark_month_paid_by_category(
-            st.session_state.user_id,
-            month,
-            year,
-            CATEGORIA_CARTAO
-        )
-        st.success("Fatura paga")
-        st.rerun()
+# -------------------- ROUTER --------------------
+if st.session_state.user_id is None:
+    screen_auth()
+else:
+    screen_app()
