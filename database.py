@@ -1,4 +1,3 @@
-
 import sqlite3
 
 DB_PATH = "database.db"
@@ -6,6 +5,32 @@ DB_PATH = "database.db"
 def get_connection():
     return sqlite3.connect(DB_PATH, check_same_thread=False)
 
+# -------------------- MIGRAÇÃO --------------------
+def migrate_payments_credit_fields():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # colunas novas necessárias para cartão de crédito
+    cols = {
+        "is_credit": "INTEGER NOT NULL DEFAULT 0",
+        "installments": "INTEGER NOT NULL DEFAULT 1",
+        "installment_index": "INTEGER NOT NULL DEFAULT 1",
+        "credit_group": "INTEGER"
+    }
+
+    # verifica colunas existentes
+    cur.execute("PRAGMA table_info(payments)")
+    existing_cols = [c[1] for c in cur.fetchall()]
+
+    # adiciona somente se não existir
+    for col, ddl in cols.items():
+        if col not in existing_cols:
+            cur.execute(f"ALTER TABLE payments ADD COLUMN {col} {ddl}")
+
+    conn.commit()
+    conn.close()
+
+# -------------------- INIT DB --------------------
 def init_db():
     conn = get_connection()
     cur = conn.cursor()
@@ -66,3 +91,6 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+    # 🔥 MIGRAÇÃO AQUI (não apaga dados)
+    migrate_payments_credit_fields()
