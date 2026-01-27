@@ -16,13 +16,11 @@ st.set_page_config(
 
 init_db()
 
-# ==================== CSS GLOBAL (MOBILE + DARK/LIGHT) ====================
+# ==================== CSS GLOBAL ====================
 st.markdown("""
 <style>
 
-/* ===============================
-   INPUTS (TEXT / TEXTAREA)
-   =============================== */
+/* INPUTS */
 div[data-testid="stTextInput"] input,
 div[data-testid="stTextArea"] textarea {
     background-color: rgba(255,255,255,0.08) !important;
@@ -32,65 +30,43 @@ div[data-testid="stTextArea"] textarea {
     font-size: 16px !important;
 }
 
-/* Placeholder */
-div[data-testid="stTextInput"] input::placeholder,
-div[data-testid="stTextArea"] textarea::placeholder {
+/* PLACEHOLDER */
+div[data-testid="stTextInput"] input::placeholder {
     color: rgba(180,180,180,0.9) !important;
 }
 
-/* ===============================
-   PASSWORD INPUT (CORRIGIDO)
-   =============================== */
+/* PASSWORD */
 div[data-testid="stPasswordInput"] {
     position: relative;
 }
 
 div[data-testid="stPasswordInput"] input {
-    background-color: rgba(255,255,255,0.08) !important;
-    color: var(--text-color) !important;
     padding-right: 48px !important;
     height: 42px !important;
-    line-height: 42px !important;
-    font-size: 16px !important;
 }
 
-/* ÍCONE DO OLHO — FIX MOBILE */
 div[data-testid="stPasswordInput"] button {
     position: absolute !important;
     right: 10px !important;
     top: 6px !important;
     height: 30px !important;
     width: 30px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
     background: transparent !important;
 }
 
-/* ===============================
-   BOX DE AUTENTICAÇÃO
-   =============================== */
+/* AUTH BOX */
 .auth-box {
     background-color: rgba(255,255,255,0.08) !important;
-    color: var(--text-color) !important;
     border-left: 5px solid #4f8bf9;
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 16px;
-    font-size: 14px;
 }
 
-/* ===============================
-   MOBILE
-   =============================== */
+/* MOBILE */
 @media (max-width: 768px) {
-    h1 {
-        font-size: 1.4rem !important;
-    }
-
-    button {
-        width: 100%;
-    }
+    h1 { font-size: 1.4rem !important; }
+    button { width: 100%; }
 }
 
 </style>
@@ -107,8 +83,6 @@ def fmt_brl(v):
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 def fmt_date_br(d):
-    if not d:
-        return ""
     try:
         return datetime.strptime(str(d), "%Y-%m-%d").strftime("%d/%m/%Y")
     except:
@@ -122,14 +96,12 @@ for k in ["user_id", "username"]:
 # ==================== AUTH ====================
 def screen_auth():
     st.title("💳 Controle Financeiro")
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     st.markdown(
         """
         <div class="auth-box">
         🔐 <b>Autenticação e autoria do projeto</b><br>
-        Aplicação desenvolvida por <b>Carlos Martins</b>.<br>
-        Para dúvidas, sugestões ou suporte técnico:<br>
+        Aplicação desenvolvida por <b>Carlos Martins</b><br>
         📧 <a href="mailto:cr954479@gmail.com">cr954479@gmail.com</a>
         </div>
         """,
@@ -138,12 +110,11 @@ def screen_auth():
 
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
-    # ---------- LOGIN ----------
     with t1:
         u = st.text_input("Usuário", key="login_user")
         p = st.text_input("Senha", type="password", key="login_pass")
 
-        if st.button("Entrar", key="btn_login"):
+        if st.button("Entrar"):
             uid = authenticate(u, p)
             if uid:
                 st.session_state.user_id = uid
@@ -153,39 +124,31 @@ def screen_auth():
             else:
                 st.error("Usuário ou senha inválidos.")
 
-    # ---------- CADASTRO ----------
     with t2:
-        u = st.text_input("Novo usuário", key="signup_user")
-        p = st.text_input("Nova senha", type="password", key="signup_pass")
-        q = st.selectbox(
-            "Pergunta de segurança",
-            [
-                "Qual o nome do seu primeiro pet?",
-                "Qual o nome da sua mãe?",
-                "Qual sua cidade de nascimento?",
-                "Qual seu filme favorito?"
-            ],
-            key="signup_q"
-        )
-        a = st.text_input("Resposta", key="signup_a")
+        u = st.text_input("Novo usuário")
+        p = st.text_input("Nova senha", type="password")
+        q = st.selectbox("Pergunta de segurança", [
+            "Qual o nome do seu primeiro pet?",
+            "Qual o nome da sua mãe?",
+            "Qual sua cidade de nascimento?",
+            "Qual seu filme favorito?"
+        ])
+        a = st.text_input("Resposta")
 
-        if st.button("Criar conta", key="btn_signup"):
+        if st.button("Criar conta"):
             create_user(u, p, q, a)
-            st.success("Conta criada! Faça login.")
+            st.success("Conta criada!")
 
-    # ---------- RECUPERAR SENHA ----------
     with t3:
-        u = st.text_input("Usuário", key="reset_user")
+        u = st.text_input("Usuário")
         q = get_security_question(u) if u else None
         if q:
             st.info(q)
-            a = st.text_input("Resposta", key="reset_a")
-            np = st.text_input("Nova senha", type="password", key="reset_np")
-            if st.button("Redefinir senha", key="btn_reset"):
+            a = st.text_input("Resposta")
+            np = st.text_input("Nova senha", type="password")
+            if st.button("Redefinir"):
                 if reset_password(u, a, np):
                     st.success("Senha alterada!")
-                else:
-                    st.error("Resposta incorreta.")
 
 # ==================== APP ====================
 def screen_app():
@@ -194,13 +157,12 @@ def screen_app():
 
         today = date.today()
         month_label = st.selectbox("Mês", MESES, index=today.month - 1)
-        year = st.selectbox("Ano", list(range(today.year - 2, today.year + 3)))
+        year = st.selectbox("Ano", list(range(today.year-2, today.year+3)))
         month = MESES.index(month_label) + 1
 
-        page = st.radio(
-            "Menu",
-            ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"]
-        )
+        page = st.radio("Menu", [
+            "📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"
+        ])
 
         if st.button("Sair"):
             st.session_state.user_id = None
@@ -209,68 +171,44 @@ def screen_app():
 
     rows = repos.list_payments(st.session_state.user_id, month, year)
 
-    df = pd.DataFrame(rows, columns=[
-        "id","descricao","valor","vencimento","pago","data_pagamento",
-        "categoria_id","categoria","is_credit","installments",
-        "installment_index","credit_group"
-    ])
-
-    total = df["valor"].sum() if not df.empty else 0
-    pago = df[df["pago"] == 1]["valor"].sum() if not df.empty else 0
-    aberto = total - pago
-
-    budget = repos.get_budget(st.session_state.user_id, month, year)
-    saldo = budget["income"] - total
-
-    st.title("💳 Controle Financeiro")
-    st.caption(f"Período: **{month_label}/{year}**")
-
-    c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Total", fmt_brl(total))
-    c2.metric("Pago", fmt_brl(pago))
-    c3.metric("Em aberto", fmt_brl(aberto))
-    c4.metric("Saldo", fmt_brl(saldo))
-
-    st.divider()
-
     # ================= DESPESAS =================
     if page == "🧾 Despesas":
         st.subheader("🧾 Despesas")
 
-        cats = repos.list_categories(st.session_state.user_id)
-        cat_map = {name: cid for cid, name in cats}
-        cat_names = ["(Sem categoria)"] + list(cat_map.keys())
+        # >>>>>>>>>>> FATURA DO CARTÃO (ADICIONADO)
+        credit_rows = [r for r in rows if r[7] and "cart" in r[7].lower()]
+        if credit_rows:
+            open_credit = [r for r in credit_rows if r[4] == 0]
+            paid_credit = [r for r in credit_rows if r[4] == 1]
 
-        with st.expander("➕ Adicionar despesa", expanded=True):
-            desc = st.text_input("Descrição")
-            val = st.number_input("Valor (R$)", min_value=0.0)
-            venc = st.date_input("Vencimento", format="DD/MM/YYYY")
-            cat_name = st.selectbox("Categoria", cat_names)
-            parcelas = st.number_input("Parcelas", min_value=1, value=1)
+            total_fatura = sum(float(r[2]) for r in open_credit)
 
-            if st.button("Adicionar"):
-                cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
-                repos.add_payment(
-                    st.session_state.user_id,
-                    desc,
-                    val,
-                    str(venc),
-                    month,
-                    year,
-                    cid,
-                    is_credit=1 if parcelas > 1 else 0,
-                    installments=parcelas
-                )
-                st.rerun()
+            st.subheader("💳 Fatura do cartão")
+            c1, c2 = st.columns([3,1])
+            c1.metric("Total da fatura", fmt_brl(total_fatura))
 
-        st.divider()
+            if open_credit:
+                if c2.button("💰 Pagar fatura do cartão"):
+                    repos.mark_credit_invoice_paid(
+                        st.session_state.user_id, month, year
+                    )
+                    st.rerun()
+            elif paid_credit:
+                if c2.button("🔄 Desfazer pagamento da fatura"):
+                    repos.unmark_credit_invoice_paid(
+                        st.session_state.user_id, month, year
+                    )
+                    st.rerun()
+
+            st.divider()
+        # <<<<<<<<<< FATURA DO CARTÃO
 
         for r in rows:
             pid, desc, amount, due, paid = r[0], r[1], r[2], r[3], r[4]
-            cat_name = r[7]
+            cat = r[7]
 
             a,b,c,d,e = st.columns([4,1.2,1.5,1.2,1])
-            a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
+            a.write(f"**{desc}**" + (f"  \n🏷️ {cat}" if cat else ""))
             b.write(fmt_brl(amount))
             c.write(fmt_date_br(due))
             d.write("✅ Paga" if paid else "🕓 Aberta")
