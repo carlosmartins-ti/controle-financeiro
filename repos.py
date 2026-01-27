@@ -207,3 +207,31 @@ def upsert_budget(user_id: int, month: int, year: int, income: float, expense_go
     )
     conn.commit()
     conn.close()
+    
+    def mark_credit_invoice_paid(user_id: int, month: int, year: int):
+    """
+    Marca como paga TODAS as despesas do cartão de crédito
+    do mês/ano informado.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE payments
+        SET paid = 1,
+            paid_date = ?
+        WHERE user_id = ?
+          AND month = ?
+          AND year = ?
+          AND category_id IN (
+              SELECT id
+              FROM categories
+              WHERE user_id = ?
+                AND LOWER(name) LIKE '%cart%'
+          )
+          AND paid = 0
+    """, (_now(), user_id, month, year, user_id))
+
+    conn.commit()
+    conn.close()
+
