@@ -1,68 +1,10 @@
 import datetime
-import pandas as pd
 from database import get_connection
 
-# ======================
-# Utils
-# ======================
 def _now():
     return datetime.datetime.now().isoformat(timespec="seconds")
 
-# ======================
-# Categorias
-# ======================
-def ensure_default_categories(user_id: int):
-    DEFAULT_CATEGORIES = [
-        "Aluguel",
-        "Condomínio",
-        "Água",
-        "Luz",
-        "Plano celular",
-        "Internet",
-        "Supermercado",
-        "Restaurante",
-        "Delivery / iFood",
-        "Refeição trabalho",
-        "TV / Streaming",
-        "Transporte",
-        "Cartão de crédito",
-        "Contas fixas",
-        "Lazer",
-        "Saúde",
-        "Educação",
-        "Poupança",
-        "Roupas",
-        "Calçados",
-        "Cosméticos",
-        "Farmácia",
-        "Academia",
-        "Barbeiro / Salão",
-        "Cinema",
-        "Viagem",
-        "Passeios",
-        "Jogos",
-        "Bares / festas",
-        "Faculdade",
-        "Móveis",
-        "Outros",
-        "Imprevistos",
-    ]
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    for name in DEFAULT_CATEGORIES:
-        cur.execute(
-            """
-            INSERT OR IGNORE INTO categories (user_id, name, created_at)
-            VALUES (?, ?, ?)
-            """,
-            (user_id, name, _now())
-        )
-
-    conn.commit()
-    conn.close()
-
+# -------------------- Categories --------------------
 def list_categories(user_id: int):
     conn = get_connection()
     cur = conn.cursor()
@@ -78,14 +20,10 @@ def create_category(user_id: int, name: str):
     name = (name or "").strip()
     if not name:
         raise ValueError("Nome da categoria é obrigatório.")
-
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        """
-        INSERT OR IGNORE INTO categories (user_id, name, created_at)
-        VALUES (?, ?, ?)
-        """,
+        "INSERT INTO categories (user_id, name, created_at) VALUES (?, ?, ?)",
         (user_id, name, _now())
     )
     conn.commit()
@@ -94,7 +32,6 @@ def create_category(user_id: int, name: str):
 def delete_category(user_id: int, category_id: int):
     conn = get_connection()
     cur = conn.cursor()
-
     cur.execute(
         "UPDATE payments SET category_id = NULL WHERE user_id = ? AND category_id = ?",
         (user_id, category_id)
@@ -103,13 +40,10 @@ def delete_category(user_id: int, category_id: int):
         "DELETE FROM categories WHERE user_id = ? AND id = ?",
         (user_id, category_id)
     )
-
     conn.commit()
     conn.close()
 
-# ======================
-# Pagamentos / Despesas
-# ======================
+# -------------------- Payments / Despesas --------------------
 def add_payment(
     user_id: int,
     description: str,
@@ -130,21 +64,17 @@ def add_payment(
     conn = get_connection()
     cur = conn.cursor()
 
-    if not is_credit or installments <= 1:
-        # despesa normal
+    if not is_credit or installments == 1:
         cur.execute(
-            """
-            INSERT INTO payments
-            (user_id, description, category_id, amount, due_date,
-             month, year, paid, paid_date, created_at,
-             is_credit, installments, installment_index, credit_group)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, 0, 1, 1, NULL)
-            """,
+            """INSERT INTO payments
+               (user_id, description, category_id, amount, due_date,
+                month, year, paid, paid_date, created_at,
+                is_credit, installments, installment_index, credit_group)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, 0, 1, 1, NULL)""",
             (user_id, description, category_id, amount, due_date, month, year, _now())
         )
     else:
-        # cartão parcelado
-        cur.execute("SELECT COALESCE(MAX(credit_group), 0) + 1 FROM payments")
+        cur.execute("SELECT COALESCE(MAX(credit_group),0)+1 FROM payments")
         group_id = cur.fetchone()[0]
 
         parcela_valor = round(amount / installments, 2)
@@ -157,13 +87,11 @@ def add_payment(
                 y += 1
 
             cur.execute(
-                """
-                INSERT INTO payments
-                (user_id, description, category_id, amount, due_date,
-                 month, year, paid, paid_date, created_at,
-                 is_credit, installments, installment_index, credit_group)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, 1, ?, ?, ?)
-                """,
+                """INSERT INTO payments
+                   (user_id, description, category_id, amount, due_date,
+                    month, year, paid, paid_date, created_at,
+                    is_credit, installments, installment_index, credit_group)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, 1, ?, ?, ?)""",
                 (
                     user_id,
                     f"{description} ({i+1}/{installments})",
@@ -186,15 +114,13 @@ def list_payments(user_id: int, month: int, year: int):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        """
-        SELECT p.id, p.description, p.amount, p.due_date, p.paid, p.paid_date,
-               p.category_id, c.name,
-               p.is_credit, p.installments, p.installment_index, p.credit_group
-        FROM payments p
-        LEFT JOIN categories c ON c.id = p.category_id
-        WHERE p.user_id = ? AND p.month = ? AND p.year = ?
-        ORDER BY p.paid ASC, p.due_date ASC, p.id DESC
-        """,
+        """SELECT p.id, p.description, p.amount, p.due_date, p.paid, p.paid_date,
+                  p.category_id, c.name,
+                  p.is_credit, p.installments, p.installment_index, p.credit_group
+           FROM payments p
+           LEFT JOIN categories c ON c.id = p.category_id
+           WHERE p.user_id = ? AND p.month = ? AND p.year = ?
+           ORDER BY p.paid ASC, p.due_date ASC, p.id DESC""",
         (user_id, month, year)
     )
     rows = cur.fetchall()
@@ -205,40 +131,16 @@ def mark_paid(user_id: int, payment_id: int, paid: bool):
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute(
-        "SELECT is_credit, credit_group FROM payments WHERE id = ? AND user_id = ?",
-        (payment_id, user_id)
-    )
-    row = cur.fetchone()
-
-    if not row:
-        conn.close()
-        return
-
-    is_credit, group_id = row
-
-    if is_credit and group_id:
-        if paid:
-            cur.execute(
-                "UPDATE payments SET paid = 1, paid_date = ? WHERE user_id = ? AND credit_group = ?",
-                (_now(), user_id, group_id)
-            )
-        else:
-            cur.execute(
-                "UPDATE payments SET paid = 0, paid_date = NULL WHERE user_id = ? AND credit_group = ?",
-                (user_id, group_id)
-            )
+    if paid:
+        cur.execute(
+            "UPDATE payments SET paid = 1, paid_date = ? WHERE user_id = ? AND id = ?",
+            (_now(), user_id, payment_id)
+        )
     else:
-        if paid:
-            cur.execute(
-                "UPDATE payments SET paid = 1, paid_date = ? WHERE user_id = ? AND id = ?",
-                (_now(), user_id, payment_id)
-            )
-        else:
-            cur.execute(
-                "UPDATE payments SET paid = 0, paid_date = NULL WHERE user_id = ? AND id = ?",
-                (user_id, payment_id)
-            )
+        cur.execute(
+            "UPDATE payments SET paid = 0, paid_date = NULL WHERE user_id = ? AND id = ?",
+            (user_id, payment_id)
+        )
 
     conn.commit()
     conn.close()
@@ -253,16 +155,16 @@ def delete_payment(user_id: int, payment_id: int):
     conn.commit()
     conn.close()
 
-# ======================
-# Fatura do Cartão
-# ======================
+# -------------------- Fatura Cartão --------------------
 def mark_credit_invoice_paid(user_id: int, month: int, year: int):
     conn = get_connection()
     cur = conn.cursor()
+
     cur.execute(
         """
         UPDATE payments
-        SET paid = 1, paid_date = ?
+        SET paid = 1,
+            paid_date = ?
         WHERE user_id = ?
           AND month = ?
           AND year = ?
@@ -271,20 +173,22 @@ def mark_credit_invoice_paid(user_id: int, month: int, year: int):
               WHERE user_id = ?
                 AND LOWER(name) LIKE '%cart%'
           )
-          AND paid = 0
         """,
         (_now(), user_id, month, year, user_id)
     )
+
     conn.commit()
     conn.close()
 
 def unmark_credit_invoice_paid(user_id: int, month: int, year: int):
     conn = get_connection()
     cur = conn.cursor()
+
     cur.execute(
         """
         UPDATE payments
-        SET paid = 0, paid_date = NULL
+        SET paid = 0,
+            paid_date = NULL
         WHERE user_id = ?
           AND month = ?
           AND year = ?
@@ -296,12 +200,11 @@ def unmark_credit_invoice_paid(user_id: int, month: int, year: int):
         """,
         (user_id, month, year, user_id)
     )
+
     conn.commit()
     conn.close()
 
-# ======================
-# Planejamento
-# ======================
+# -------------------- Budget --------------------
 def get_budget(user_id: int, month: int, year: int):
     conn = get_connection()
     cur = conn.cursor()
@@ -319,13 +222,11 @@ def upsert_budget(user_id: int, month: int, year: int, income: float, expense_go
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        """
-        INSERT INTO budgets (user_id, month, year, income, expense_goal, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(user_id, month, year)
-        DO UPDATE SET income = excluded.income,
-                      expense_goal = excluded.expense_goal
-        """,
+        """INSERT INTO budgets (user_id, month, year, income, expense_goal, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(user_id, month, year)
+           DO UPDATE SET income = excluded.income,
+                         expense_goal = excluded.expense_goal""",
         (user_id, month, year, income, expense_goal, _now())
     )
     conn.commit()
