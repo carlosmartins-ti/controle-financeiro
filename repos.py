@@ -15,65 +15,23 @@ def list_categories(user_id):
     return rows
 
 # ===================== PAGAMENTOS =====================
-def add_payment(user_id, description, amount, due_date, month, year, category_id=None, parent_id=None):
+def add_payment(user_id, description, amount, due_date, month, year, category_id=None):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
         """INSERT INTO payments
-           (user_id, description, category_id, amount, due_date, month, year, paid, parent_id, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)""",
-        (user_id, description, category_id, amount, due_date, month, year, parent_id, _now())
+           (user_id, description, category_id, amount, due_date, month, year, paid, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)""",
+        (user_id, description, category_id, amount, due_date, month, year, _now())
     )
     conn.commit()
     conn.close()
 
-def list_payments(user_id, month, year):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        """SELECT id, description, amount, due_date, paid, category_id
-           FROM payments
-           WHERE user_id = ? AND month = ? AND year = ?""",
-        (user_id, month, year)
-    )
-    rows = cur.fetchall()
-    conn.close()
-    return rows
-
-def mark_month_paid_by_category(user_id, month, year, category_name):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        """UPDATE payments
-           SET paid = 1
-           WHERE user_id = ? AND month = ? AND year = ?
-           AND category_id = (
-                SELECT id FROM categories
-                WHERE user_id = ? AND name = ?
-           )""",
-        (user_id, month, year, user_id, category_name)
-    )
-    conn.commit()
-    conn.close()
-
-# ===================== PARCELAMENTO =====================
-def create_installments(user_id, description, total_amount, installments, start_month, start_year, category_id):
-    parcela_valor = round(total_amount / installments, 2)
-    current_month = start_month
-    current_year = start_year
+def add_installments(user_id, description, total_amount, installments, start_month, start_year, category_id):
+    parcela = round(total_amount / installments, 2)
 
     conn = get_connection()
     cur = conn.cursor()
-
-    # cria pagamento pai
-    cur.execute(
-        """INSERT INTO payments
-           (user_id, description, category_id, amount, due_date, month, year, paid, parent_id, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, ?)""",
-        (user_id, description + " (1/{} )".format(installments),
-         category_id, parcela_valor, "01", current_month, current_year, _now())
-    )
-    parent_id = cur.lastrowid
 
     for i in range(installments):
         mes = start_month + i
@@ -85,10 +43,41 @@ def create_installments(user_id, description, total_amount, installments, start_
         desc = f"{description} ({i+1}/{installments})"
         cur.execute(
             """INSERT INTO payments
-               (user_id, description, category_id, amount, due_date, month, year, paid, parent_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)""",
-            (user_id, desc, category_id, parcela_valor, "01", mes, ano, parent_id, _now())
+               (user_id, description, category_id, amount, due_date, month, year, paid, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)""",
+            (user_id, desc, category_id, parcela, "01", mes, ano, _now())
         )
 
+    conn.commit()
+    conn.close()
+
+def list_payments(user_id, month, year):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """SELECT p.id, p.description, p.amount, p.due_date, p.paid, c.name
+           FROM payments p
+           LEFT JOIN categories c ON c.id = p.category_id
+           WHERE p.user_id = ? AND p.month = ? AND p.year = ?
+           ORDER BY p.paid ASC, p.due_date ASC, p.id DESC""",
+        (user_id, month, year)
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+def mark_fatura_cartao(user_id, month, year, categoria_nome):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """UPDATE payments
+           SET paid = 1
+           WHERE user_id = ? AND month = ? AND year = ?
+             AND category_id = (
+                SELECT id FROM categories
+                WHERE user_id = ? AND name = ?
+             )""",
+        (user_id, month, year, user_id, categoria_nome)
+    )
     conn.commit()
     conn.close()
