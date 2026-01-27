@@ -37,22 +37,22 @@ def screen_auth():
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
     with t1:
-    u = st.text_input("Usuário", key="login_user")
-    p = st.text_input("Senha", type="password", key="login_pass")
+        u = st.text_input("Usuário", key="login_user")
+        p = st.text_input("Senha", type="password", key="login_pass")
 
-    if st.button("Entrar", key="btn_login", use_container_width=True):
-        uid = authenticate(u, p)
+        if st.button("Entrar", key="btn_login", use_container_width=True):
+            uid = authenticate(u, p)
 
-        if uid:
-            st.session_state.user_id = uid
-            st.session_state.username = u.strip().lower()
+            if uid:
+                st.session_state.user_id = uid
+                st.session_state.username = u.strip().lower()
 
-            # 👇 LOGO APÓS O LOGIN (AQUI ESTÁ CERTO)
-            repos.ensure_default_categories(uid)
+                # 👉 categorias padrão logo após login
+                repos.ensure_default_categories(uid)
 
-            st.rerun()
-        else:
-            st.error("Usuário ou senha inválidos.")
+                st.rerun()
+            else:
+                st.error("Usuário ou senha inválidos.")
 
 
     with t2:
