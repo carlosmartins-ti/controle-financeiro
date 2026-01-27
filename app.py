@@ -205,9 +205,31 @@ def screen_app():
             st.dataframe(resumo_cat, use_container_width=True, hide_index=True)
 
     # ================= PAGAMENTOS =================
-    elif page == "🧾 Pagamentos":
-        st.subheader("🧾 Pagamentos")
-        st.dataframe(df, use_container_width=True)
+with st.expander("➕ Adicionar pagamento", expanded=True):
+    a1, a2, a3, a4, a5 = st.columns([3,1,1.3,2,1])
+
+    desc = a1.text_input("Descrição")
+    val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0)
+    venc = a3.date_input("Vencimento")
+    cat_name = a4.selectbox("Categoria", cat_names)
+    parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1)
+
+    if st.button("Adicionar", type="primary"):
+        cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
+        is_credit = 1 if parcelas > 1 else 0
+        repos.add_payment(
+            st.session_state.user_id,
+            desc,
+            val,
+            str(venc),
+            month,
+            year,
+            cid,
+            is_credit=is_credit,
+            installments=parcelas
+        )
+        st.success("Pagamento adicionado.")
+        st.rerun()
 
     # ================= CATEGORIAS =================
     elif page == "🏷️ Categorias":
