@@ -66,7 +66,7 @@ def add_payment(
     cur = conn.cursor()
 
     if not is_credit or installments == 1:
-        # pagamento normal
+        # despesa normal
         cur.execute(
             """INSERT INTO payments
                (user_id, description, category_id, amount, due_date,
@@ -147,7 +147,6 @@ def mark_paid(user_id: int, payment_id: int, paid: bool):
     is_credit, group_id = row
 
     if is_credit and group_id:
-        # paga/desfaz fatura inteira
         if paid:
             cur.execute(
                 "UPDATE payments SET paid = 1, paid_date = ? WHERE user_id = ? AND credit_group = ?",
@@ -159,7 +158,6 @@ def mark_paid(user_id: int, payment_id: int, paid: bool):
                 (user_id, group_id)
             )
     else:
-        # pagamento normal
         if paid:
             cur.execute(
                 "UPDATE payments SET paid = 1, paid_date = ? WHERE user_id = ? AND id = ?",
@@ -177,7 +175,10 @@ def mark_paid(user_id: int, payment_id: int, paid: bool):
 def delete_payment(user_id: int, payment_id: int):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("DELETE FROM payments WHERE user_id = ? AND id = ?", (user_id, payment_id))
+    cur.execute(
+        "DELETE FROM payments WHERE user_id = ? AND id = ?",
+        (user_id, payment_id)
+    )
     conn.commit()
     conn.close()
 
@@ -207,8 +208,9 @@ def upsert_budget(user_id: int, month: int, year: int, income: float, expense_go
     )
     conn.commit()
     conn.close()
-    
-    def mark_credit_invoice_paid(user_id: int, month: int, year: int):
+
+# -------------------- Credit Card --------------------
+def mark_credit_invoice_paid(user_id: int, month: int, year: int):
     """
     Marca como paga TODAS as despesas do cartão de crédito
     do mês/ano informado.
@@ -216,7 +218,8 @@ def upsert_budget(user_id: int, month: int, year: int, income: float, expense_go
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("""
+    cur.execute(
+        """
         UPDATE payments
         SET paid = 1,
             paid_date = ?
@@ -230,8 +233,9 @@ def upsert_budget(user_id: int, month: int, year: int, income: float, expense_go
                 AND LOWER(name) LIKE '%cart%'
           )
           AND paid = 0
-    """, (_now(), user_id, month, year, user_id))
+        """,
+        (_now(), user_id, month, year, user_id)
+    )
 
     conn.commit()
     conn.close()
-
