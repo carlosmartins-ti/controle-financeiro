@@ -11,6 +11,8 @@ import repos
 st.set_page_config(page_title="Controle Financeiro", page_icon="💳", layout="wide")
 init_db()
 
+ADMIN_USERNAME = "carlos.martins"
+
 MESES = [
     "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
@@ -25,10 +27,24 @@ def format_date_br(s):
     try:
         return datetime.fromisoformat(str(s)).strftime("%d/%m/%Y")
     except:
-        try:
-            return datetime.strptime(str(s), "%Y-%m-%d").strftime("%d/%m/%Y")
-        except:
-            return str(s)
+        return str(s)
+
+def status_vencimento(due_date, paid):
+    if paid:
+        return "", ""
+    try:
+        d = datetime.fromisoformat(str(due_date)).date()
+    except:
+        return "", ""
+    today = date.today()
+    if d < today:
+        return "🔴 VENCIDA", "#ff4d4d"
+    if d == today:
+        return "🟡 VENCE HOJE", "#ffcc00"
+    return "", ""
+
+def is_admin():
+    return st.session_state.username == ADMIN_USERNAME
 
 # -------------------- Session --------------------
 for k in ["user_id", "username"]:
@@ -51,7 +67,7 @@ def screen_auth():
         ">
         🔐 <b>Autenticação e autoria do projeto</b><br>
         Aplicação desenvolvida por <b>Carlos Martins</b>.<br>
-        Para dúvidas, sugestões ou suporte técnico:<br>
+        Para dúvidas ou suporte:<br>
         📧 <a href="mailto:cr954479@gmail.com">cr954479@gmail.com</a>
         </div>
         """,
@@ -61,22 +77,23 @@ def screen_auth():
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
     with t1:
-        u = st.text_input("Usuário", key="login_user")
-        p = st.text_input("Senha", type="password", key="login_pass")
-        if st.button("Entrar", key="btn_login", use_container_width=True):
+        u = st.text_input("Usuário")
+        p = st.text_input("Senha", type="password")
+        if st.button("Entrar", use_container_width=True):
             u = (u or "").strip().lower()
             uid = authenticate(u, p)
             if uid:
                 st.session_state.user_id = uid
                 st.session_state.username = u
-                repos.seed_default_categories(uid)
+                if hasattr(repos, "seed_default_categories"):
+                    repos.seed_default_categories(uid)
                 st.rerun()
             else:
                 st.error("Usuário ou senha inválidos.")
 
     with t2:
-        u = st.text_input("Novo usuário", key="signup_user")
-        p = st.text_input("Nova senha", type="password", key="signup_pass")
+        u = st.text_input("Novo usuário")
+        p = st.text_input("Nova senha", type="password")
         q = st.selectbox(
             "Pergunta de segurança",
             [
@@ -84,26 +101,25 @@ def screen_auth():
                 "Qual o nome da sua mãe?",
                 "Qual sua cidade de nascimento?",
                 "Qual seu filme favorito?",
-            ],
-            key="signup_q"
+            ]
         )
-        a = st.text_input("Resposta", key="signup_a")
+        a = st.text_input("Resposta")
 
-        if st.button("Criar conta", type="primary", key="btn_signup", use_container_width=True):
+        if st.button("Criar conta", type="primary", use_container_width=True):
             u = (u or "").strip().lower()
             create_user(u, p, q, a)
             st.success("Conta criada! Faça login.")
 
     with t3:
-        u = st.text_input("Usuário", key="reset_user")
-        u_norm = (u or "").strip().lower()
-        q = get_security_question(u_norm) if u_norm else None
+        u = st.text_input("Usuário")
+        u = (u or "").strip().lower()
+        q = get_security_question(u) if u else None
         if q:
             st.info(q)
-            a = st.text_input("Resposta", key="reset_a")
-            np = st.text_input("Nova senha", type="password", key="reset_np")
-            if st.button("Redefinir senha", key="btn_reset", use_container_width=True):
-                if reset_password(u_norm, a, np):
+            a = st.text_input("Resposta")
+            np = st.text_input("Nova senha", type="password")
+            if st.button("Redefinir senha", use_container_width=True):
+                if reset_password(u, a, np):
                     st.success("Senha alterada!")
                 else:
                     st.error("Resposta incorreta.")
@@ -112,17 +128,18 @@ def screen_auth():
 def screen_app():
     with st.sidebar:
         st.markdown(f"**Usuário:** `{st.session_state.username}`")
+        if is_admin():
+            st.caption("🔑 Administrador")
 
         today = date.today()
-        month_label = st.selectbox("Mês", MESES, index=today.month-1)
-        year = st.selectbox("Ano", list(range(today.year-2, today.year+3)), index=2)
+        month_label = st.selectbox("Mês", MESES, index=today.month - 1)
+        year = st.selectbox("Ano", list(range(today.year - 2, today.year + 3)), index=2)
         month = MESES.index(month_label) + 1
 
         st.divider()
         page = st.radio(
             "Menu",
-            ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"],
-            key="menu"
+            ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"]
         )
 
         if st.button("Sair", use_container_width=True):
@@ -130,9 +147,11 @@ def screen_app():
             st.session_state.username = None
             st.rerun()
 
-    repos.seed_default_categories(st.session_state.user_id)
+    if hasattr(repos, "seed_default_categories"):
+        repos.seed_default_categories(st.session_state.user_id)
 
     rows = repos.list_payments(st.session_state.user_id, month, year)
+
     df = pd.DataFrame(
         rows,
         columns=[
@@ -152,7 +171,7 @@ def screen_app():
     st.title("💳 Controle Financeiro")
     st.caption(f"Período: **{month_label}/{year}**")
 
-    c1,c2,c3,c4 = st.columns(4)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total do mês", fmt_brl(total))
     c2.metric("Pago", fmt_brl(pago))
     c3.metric("Em aberto", fmt_brl(aberto))
@@ -169,14 +188,15 @@ def screen_app():
         cat_names = ["(Sem categoria)"] + list(cat_map.keys())
 
         with st.expander("➕ Adicionar despesa", expanded=True):
-            a1,a2,a3,a4,a5 = st.columns([3,1,1.3,2,1])
-            desc = a1.text_input("Descrição", key="add_desc")
-            val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0, key="add_val")
-            venc = a3.date_input("Vencimento", key="add_due")
-            cat_name = a4.selectbox("Categoria", cat_names, key="add_cat")
-            parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1, key="add_parc")
+            a1, a2, a3, a4, a5 = st.columns([3,1,1.3,2,1])
+            desc = a1.text_input("Descrição")
+            val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0)
+            venc = a3.date_input("Vencimento")
+            a3.caption(f"📅 {venc.strftime('%d/%m/%Y')}")
+            cat_name = a4.selectbox("Categoria", cat_names)
+            parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1)
 
-            if st.button("Adicionar", type="primary", key="btn_add"):
+            if st.button("Adicionar", type="primary"):
                 cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
                 repos.add_payment(
                     st.session_state.user_id,
@@ -194,11 +214,21 @@ def screen_app():
         st.divider()
 
         for r in rows:
-            pid, desc, amount, due, paid, paid_date, _, cat_name, *_ = r
-            a,b,c,d,e,f = st.columns([4,1.2,1.5,1.5,1.2,1])
+            pid, desc, amount, due, paid, _, _, cat_name, *_ = r
+            a, b, c, d, e, f = st.columns([4,1.2,1.8,1.2,1.2,1])
+
             a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
             b.write(fmt_brl(amount))
-            c.write(format_date_br(due))
+
+            status, color = status_vencimento(due, paid)
+            if status:
+                c.markdown(
+                    f"<span style='color:{color}; font-weight:600'>{format_date_br(due)} — {status}</span>",
+                    unsafe_allow_html=True
+                )
+            else:
+                c.write(format_date_br(due))
+
             d.write("✅ Paga" if paid else "🕓 Em aberto")
 
             if not paid:
@@ -217,7 +247,6 @@ def screen_app():
     # ================= DASHBOARD =================
     elif page == "📊 Dashboard":
         st.subheader("📊 Dashboard")
-
         if not df.empty:
             df2 = df.copy()
             df2["Categoria"] = df2["Categoria"].fillna("Sem categoria")
@@ -227,13 +256,13 @@ def screen_app():
     # ================= CATEGORIAS =================
     elif page == "🏷️ Categorias":
         st.subheader("🏷️ Categorias")
-        new_cat = st.text_input("Nova categoria", key="new_cat")
+        new_cat = st.text_input("Nova categoria")
         if st.button("Adicionar"):
             repos.create_category(st.session_state.user_id, new_cat)
             st.rerun()
 
         for cid, name in repos.list_categories(st.session_state.user_id):
-            a,b = st.columns([4,1])
+            a, b = st.columns([4,1])
             a.write(name)
             if b.button("Excluir", key=f"cat_{cid}"):
                 repos.delete_category(st.session_state.user_id, cid)
@@ -247,24 +276,6 @@ def screen_app():
         if st.button("Salvar"):
             repos.upsert_budget(st.session_state.user_id, month, year, renda_v, meta_v)
             st.success("Planejamento salvo.")
-
-# -------------------- CSS --------------------
-st.markdown("""
-<style>
-div[data-testid="stTextInput"] input,
-div[data-testid="stTextArea"] textarea,
-div[data-testid="stPasswordInput"] input {
-    background-color: var(--background-color) !important;
-    color: var(--text-color) !important;
-    font-size: 16px !important;
-}
-.auth-box {
-    background-color: rgba(255,255,255,0.08);
-    border-radius: 12px;
-    padding: 16px;
-}
-</style>
-""", unsafe_allow_html=True)
 
 # -------------------- ROUTER --------------------
 if st.session_state.user_id is None:
