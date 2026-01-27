@@ -15,17 +15,59 @@ st.set_page_config(
 )
 
 init_db()
-# ================= CSS MOBILE =================
 st.markdown("""
 <style>
 
-input, textarea {
-    color: #000000 !important;
-    background-color: #f5f6f8 !important;
+/* ===============================
+   DARK / LIGHT MODE REAL (STREAMLIT)
+   =============================== */
+
+/* INPUTS TEXTO */
+div[data-testid="stTextInput"] input,
+div[data-testid="stTextArea"] textarea {
+    background-color: var(--background-color) !important;
+    color: var(--text-color) !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    font-size: 16px !important;
 }
 
-input::placeholder {
-    color: #666 !important;
+/* PLACEHOLDER */
+div[data-testid="stTextInput"] input::placeholder,
+div[data-testid="stTextArea"] textarea::placeholder {
+    color: rgba(150,150,150,0.9) !important;
+}
+
+/* PASSWORD INPUT */
+div[data-testid="stPasswordInput"] input {
+    background-color: var(--background-color) !important;
+    color: var(--text-color) !important;
+    padding-right: 48px !important;
+}
+
+/* ÍCONE DO OLHO */
+div[data-testid="stPasswordInput"] button {
+    position: absolute !important;
+    right: 10px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background: transparent !important;
+}
+
+/* BOX DE AUTENTICAÇÃO */
+.auth-box {
+    background-color: rgba(255,255,255,0.08) !important;
+    color: var(--text-color) !important;
+}
+
+/* MOBILE */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 1.4rem !important;
+    }
+
+    button {
+        width: 100%;
+    }
 }
 
 </style>
