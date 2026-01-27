@@ -76,10 +76,11 @@ def screen_auth():
 
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
+    # -------- Entrar --------
     with t1:
-        u = st.text_input("Usuário")
-        p = st.text_input("Senha", type="password")
-        if st.button("Entrar", use_container_width=True):
+        u = st.text_input("Usuário", key="login_user")
+        p = st.text_input("Senha", type="password", key="login_pass")
+        if st.button("Entrar", key="btn_login", use_container_width=True):
             u = (u or "").strip().lower()
             uid = authenticate(u, p)
             if uid:
@@ -91,9 +92,10 @@ def screen_auth():
             else:
                 st.error("Usuário ou senha inválidos.")
 
+    # -------- Criar conta --------
     with t2:
-        u = st.text_input("Novo usuário")
-        p = st.text_input("Nova senha", type="password")
+        u = st.text_input("Novo usuário", key="signup_user")
+        p = st.text_input("Nova senha", type="password", key="signup_pass")
         q = st.selectbox(
             "Pergunta de segurança",
             [
@@ -101,25 +103,27 @@ def screen_auth():
                 "Qual o nome da sua mãe?",
                 "Qual sua cidade de nascimento?",
                 "Qual seu filme favorito?",
-            ]
+            ],
+            key="signup_q"
         )
-        a = st.text_input("Resposta")
+        a = st.text_input("Resposta", key="signup_a")
 
-        if st.button("Criar conta", type="primary", use_container_width=True):
+        if st.button("Criar conta", type="primary", key="btn_signup", use_container_width=True):
             u = (u or "").strip().lower()
             create_user(u, p, q, a)
             st.success("Conta criada! Faça login.")
 
+    # -------- Recuperar senha --------
     with t3:
-        u = st.text_input("Usuário")
-        u = (u or "").strip().lower()
-        q = get_security_question(u) if u else None
+        u = st.text_input("Usuário", key="reset_user")
+        u_norm = (u or "").strip().lower()
+        q = get_security_question(u_norm) if u_norm else None
         if q:
             st.info(q)
-            a = st.text_input("Resposta")
-            np = st.text_input("Nova senha", type="password")
-            if st.button("Redefinir senha", use_container_width=True):
-                if reset_password(u, a, np):
+            a = st.text_input("Resposta", key="reset_a")
+            np = st.text_input("Nova senha", type="password", key="reset_np")
+            if st.button("Redefinir senha", key="btn_reset", use_container_width=True):
+                if reset_password(u_norm, a, np):
                     st.success("Senha alterada!")
                 else:
                     st.error("Resposta incorreta.")
@@ -132,17 +136,18 @@ def screen_app():
             st.caption("🔑 Administrador")
 
         today = date.today()
-        month_label = st.selectbox("Mês", MESES, index=today.month - 1)
-        year = st.selectbox("Ano", list(range(today.year - 2, today.year + 3)), index=2)
+        month_label = st.selectbox("Mês", MESES, index=today.month - 1, key="sel_month")
+        year = st.selectbox("Ano", list(range(today.year - 2, today.year + 3)), index=2, key="sel_year")
         month = MESES.index(month_label) + 1
 
         st.divider()
         page = st.radio(
             "Menu",
-            ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"]
+            ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"],
+            key="menu"
         )
 
-        if st.button("Sair", use_container_width=True):
+        if st.button("Sair", key="btn_logout", use_container_width=True):
             st.session_state.user_id = None
             st.session_state.username = None
             st.rerun()
@@ -189,14 +194,14 @@ def screen_app():
 
         with st.expander("➕ Adicionar despesa", expanded=True):
             a1, a2, a3, a4, a5 = st.columns([3,1,1.3,2,1])
-            desc = a1.text_input("Descrição")
-            val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0)
-            venc = a3.date_input("Vencimento")
+            desc = a1.text_input("Descrição", key="add_desc")
+            val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0, key="add_val")
+            venc = a3.date_input("Vencimento", key="add_due")
             a3.caption(f"📅 {venc.strftime('%d/%m/%Y')}")
-            cat_name = a4.selectbox("Categoria", cat_names)
-            parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1)
+            cat_name = a4.selectbox("Categoria", cat_names, key="add_cat")
+            parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1, key="add_parc")
 
-            if st.button("Adicionar", type="primary"):
+            if st.button("Adicionar", type="primary", key="btn_add"):
                 cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
                 repos.add_payment(
                     st.session_state.user_id,
@@ -256,8 +261,8 @@ def screen_app():
     # ================= CATEGORIAS =================
     elif page == "🏷️ Categorias":
         st.subheader("🏷️ Categorias")
-        new_cat = st.text_input("Nova categoria")
-        if st.button("Adicionar"):
+        new_cat = st.text_input("Nova categoria", key="new_cat")
+        if st.button("Adicionar", key="btn_add_cat"):
             repos.create_category(st.session_state.user_id, new_cat)
             st.rerun()
 
@@ -271,9 +276,9 @@ def screen_app():
     # ================= PLANEJAMENTO =================
     elif page == "💰 Planejamento":
         st.subheader("💰 Planejamento")
-        renda_v = st.number_input("Renda", value=float(renda))
-        meta_v = st.number_input("Meta de gastos", value=float(budget["expense_goal"]))
-        if st.button("Salvar"):
+        renda_v = st.number_input("Renda", value=float(renda), key="renda")
+        meta_v = st.number_input("Meta de gastos", value=float(budget["expense_goal"]), key="meta")
+        if st.button("Salvar", key="btn_save_plan"):
             repos.upsert_budget(st.session_state.user_id, month, year, renda_v, meta_v)
             st.success("Planejamento salvo.")
 
