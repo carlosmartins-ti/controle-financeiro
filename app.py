@@ -69,52 +69,72 @@ for k in ["user_id", "username"]:
 # ==================== AUTH ====================
 def screen_auth():
     st.title("💳 Controle Financeiro")
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
-    st.markdown("""
-    <div class="auth-box">
-    🔐 <b>Autenticação e autoria do projeto</b><br>
-    Aplicação desenvolvida por <b>Carlos Martins</b><br>
-    📧 <a href="mailto:cr954479@gmail.com">cr954479@gmail.com</a>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="auth-box">
+        🔐 <b>Autenticação e autoria do projeto</b><br>
+        Aplicação desenvolvida por <b>Carlos Martins</b>.<br>
+        Para dúvidas, sugestões ou suporte técnico:<br>
+        📧 <a href="mailto:cr954479@gmail.com">cr954479@gmail.com</a>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
+    # ---------- LOGIN ----------
     with t1:
-        u = st.text_input("Usuário")
-        p = st.text_input("Senha", type="password")
-        if st.button("Entrar"):
+        u = st.text_input("Usuário", key="login_user")
+        p = st.text_input("Senha", type="password", key="login_pass")
+
+        if st.button("Entrar", key="btn_login"):
             uid = authenticate(u, p)
             if uid:
                 st.session_state.user_id = uid
                 st.session_state.username = u.strip().lower()
                 repos.ensure_default_categories(uid)
                 st.rerun()
+            else:
+                st.error("Usuário ou senha inválidos.")
 
+    # ---------- CADASTRO ----------
     with t2:
-        u = st.text_input("Novo usuário")
-        p = st.text_input("Nova senha", type="password")
-        q = st.selectbox("Pergunta de segurança", [
-            "Qual o nome do seu primeiro pet?",
-            "Qual o nome da sua mãe?",
-            "Qual sua cidade de nascimento?",
-            "Qual seu filme favorito?"
-        ])
-        a = st.text_input("Resposta")
-        if st.button("Criar conta"):
-            create_user(u, p, q, a)
-            st.success("Conta criada!")
+        u = st.text_input("Novo usuário", key="signup_user")
+        p = st.text_input("Nova senha", type="password", key="signup_pass")
+        q = st.selectbox(
+            "Pergunta de segurança",
+            [
+                "Qual o nome do seu primeiro pet?",
+                "Qual o nome da sua mãe?",
+                "Qual sua cidade de nascimento?",
+                "Qual seu filme favorito?"
+            ],
+            key="signup_q"
+        )
+        a = st.text_input("Resposta", key="signup_a")
 
+        if st.button("Criar conta", key="btn_signup"):
+            create_user(u, p, q, a)
+            st.success("Conta criada! Faça login.")
+
+    # ---------- RECUPERAR SENHA ----------
     with t3:
-        u = st.text_input("Usuário")
+        u = st.text_input("Usuário", key="reset_user")
         q = get_security_question(u) if u else None
+
         if q:
             st.info(q)
-            a = st.text_input("Resposta")
-            np = st.text_input("Nova senha", type="password")
-            if st.button("Redefinir"):
-                reset_password(u, a, np)
-                st.success("Senha alterada!")
+            a = st.text_input("Resposta", key="reset_a")
+            np = st.text_input("Nova senha", type="password", key="reset_np")
+
+            if st.button("Redefinir senha", key="btn_reset"):
+                if reset_password(u, a, np):
+                    st.success("Senha alterada!")
+                else:
+                    st.error("Resposta incorreta.")
 
 # ==================== APP ====================
 def screen_app():
