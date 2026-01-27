@@ -19,11 +19,16 @@ MESES = [
 def fmt_brl(v):
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-def parse_date_str(s):
+def format_date_br(s):
+    if not s:
+        return ""
     try:
-        return datetime.fromisoformat(str(s)).date()
+        return datetime.fromisoformat(str(s)).strftime("%d/%m/%Y")
     except:
-        return datetime.strptime(str(s), "%Y-%m-%d").date()
+        try:
+            return datetime.strptime(str(s), "%Y-%m-%d").strftime("%d/%m/%Y")
+        except:
+            return str(s)
 
 # -------------------- Session --------------------
 for k in ["user_id", "username"]:
@@ -34,16 +39,37 @@ for k in ["user_id", "username"]:
 def screen_auth():
     st.title("💳 Controle Financeiro")
 
+    st.markdown(
+        """
+        <div style="
+            padding:12px;
+            border-radius:8px;
+            background-color:#f0f2f6;
+            border-left:5px solid #4f8bf9;
+            margin-bottom:16px;
+            font-size:14px;
+        ">
+        🔐 <b>Autenticação e autoria do projeto</b><br>
+        Aplicação desenvolvida por <b>Carlos Martins</b>.<br>
+        Para dúvidas, sugestões ou suporte técnico:<br>
+        📧 <a href="mailto:cr954479@gmail.com">cr954479@gmail.com</a>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
     with t1:
         u = st.text_input("Usuário", key="login_user")
         p = st.text_input("Senha", type="password", key="login_pass")
         if st.button("Entrar", key="btn_login", use_container_width=True):
+            u = (u or "").strip().lower()
             uid = authenticate(u, p)
             if uid:
                 st.session_state.user_id = uid
                 st.session_state.username = u
+                repos.seed_default_categories(uid)
                 st.rerun()
             else:
                 st.error("Usuário ou senha inválidos.")
@@ -64,18 +90,20 @@ def screen_auth():
         a = st.text_input("Resposta", key="signup_a")
 
         if st.button("Criar conta", type="primary", key="btn_signup", use_container_width=True):
+            u = (u or "").strip().lower()
             create_user(u, p, q, a)
             st.success("Conta criada! Faça login.")
 
     with t3:
         u = st.text_input("Usuário", key="reset_user")
-        q = get_security_question(u) if u else None
+        u_norm = (u or "").strip().lower()
+        q = get_security_question(u_norm) if u_norm else None
         if q:
             st.info(q)
             a = st.text_input("Resposta", key="reset_a")
             np = st.text_input("Nova senha", type="password", key="reset_np")
             if st.button("Redefinir senha", key="btn_reset", use_container_width=True):
-                if reset_password(u, a, np):
+                if reset_password(u_norm, a, np):
                     st.success("Senha alterada!")
                 else:
                     st.error("Resposta incorreta.")
@@ -101,6 +129,8 @@ def screen_app():
             st.session_state.user_id = None
             st.session_state.username = None
             st.rerun()
+
+    repos.seed_default_categories(st.session_state.user_id)
 
     rows = repos.list_payments(st.session_state.user_id, month, year)
     df = pd.DataFrame(
@@ -161,42 +191,14 @@ def screen_app():
                 )
                 st.rerun()
 
-        # ---- FATURA DO CARTÃO ----
-        credit_rows = [
-            r for r in rows
-            if r[7] and "cart" in r[7].lower()
-        ]
-
-        if credit_rows:
-            open_credit = [r for r in credit_rows if r[4] == 0]
-            total_fatura = sum(float(r[2]) for r in open_credit)
-
-            st.divider()
-            st.subheader("💳 Fatura do cartão")
-            c1,c2 = st.columns([3,1])
-            c1.metric("Total em aberto", fmt_brl(total_fatura))
-
-            if open_credit:
-                if c2.button("💰 Pagar fatura do cartão"):
-                    repos.mark_credit_invoice_paid(
-                        st.session_state.user_id, month, year
-                    )
-                    st.rerun()
-            else:
-                if c2.button("🔄 Desfazer pagamento da fatura"):
-                    repos.unmark_credit_invoice_paid(
-                        st.session_state.user_id, month, year
-                    )
-                    st.rerun()
-
         st.divider()
 
         for r in rows:
-            pid, desc, amount, due, paid, _, _, cat_name, *_ = r
-            a,b,c,d,e,f = st.columns([4,1.2,1.5,1.2,1.2,1])
+            pid, desc, amount, due, paid, paid_date, _, cat_name, *_ = r
+            a,b,c,d,e,f = st.columns([4,1.2,1.5,1.5,1.2,1])
             a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
             b.write(fmt_brl(amount))
-            c.write(due)
+            c.write(format_date_br(due))
             d.write("✅ Paga" if paid else "🕓 Em aberto")
 
             if not paid:
@@ -245,6 +247,24 @@ def screen_app():
         if st.button("Salvar"):
             repos.upsert_budget(st.session_state.user_id, month, year, renda_v, meta_v)
             st.success("Planejamento salvo.")
+
+# -------------------- CSS --------------------
+st.markdown("""
+<style>
+div[data-testid="stTextInput"] input,
+div[data-testid="stTextArea"] textarea,
+div[data-testid="stPasswordInput"] input {
+    background-color: var(--background-color) !important;
+    color: var(--text-color) !important;
+    font-size: 16px !important;
+}
+.auth-box {
+    background-color: rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 16px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # -------------------- ROUTER --------------------
 if st.session_state.user_id is None:
