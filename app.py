@@ -21,22 +21,6 @@ def inject_css():
 
 inject_css()
 
-# -------------------- UI CONTROL --------------------
-def hide_share_only():
-    st.markdown(
-        """
-        <style>
-        button[title="Share"] {display:none !important;}
-        a[title="View source"] {display:none !important;}
-        a[title="Edit this app"] {display:none !important;}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-if st.session_state.get("username") != "carlos.martins":
-    hide_share_only()
-
 # -------------------- Session --------------------
 for k in ["user_id", "username", "edit_id"]:
     if k not in st.session_state:
@@ -47,18 +31,19 @@ MESES = [
     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
 ]
 
-def fmt(v):
+def fmt_brl(v: float) -> str:
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-def parse_date(s):
+def parse_date_str(s: str):
     try:
         return datetime.fromisoformat(str(s)).date()
     except:
-        return date.today()
+        return datetime.strptime(str(s), "%Y-%m-%d").date()
 
 # -------------------- Auth --------------------
 def screen_auth():
     st.title("💳 Controle Financeiro")
+    st.caption("Cada usuário acessa apenas seus próprios dados.")
 
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
@@ -115,25 +100,26 @@ def screen_app():
         mes = MESES.index(mes_nome) + 1
 
         st.divider()
-
         page = st.radio(
             "Menu",
-            ["📊 Dashboard", "🧾 Pagamentos", "🏷️ Categorias", "💰 Planejamento", "📤 Exportar"],
-            key="menu_page"
+            ["📊 Dashboard", "🧾 Pagamentos", "🏷️ Categorias", "💰 Planejamento", "📤 Exportar"]
         )
-
         st.divider()
+
         if st.button("Sair", use_container_width=True):
             st.session_state.user_id = None
             st.session_state.username = None
             st.session_state.edit_id = None
             st.rerun()
 
-    # -------- Dados base --------
+    # -------------------- Dados base --------------------
     rows = repos.list_payments(st.session_state.user_id, mes, ano)
     df = pd.DataFrame(
         rows,
-        columns=["id","Descrição","Valor","Vencimento","Pago","Data pagamento","CategoriaID","Categoria"]
+        columns=[
+            "id","Descrição","Valor","Vencimento","Pago","Data pagamento",
+            "CategoriaID","Categoria","is_credit","installments","installment_index","credit_group"
+        ]
     )
 
     total = df["Valor"].sum() if not df.empty else 0
@@ -144,7 +130,7 @@ def screen_app():
     if not df.empty:
         atraso = df[
             (df["Pago"] == 0) &
-            (df["Vencimento"].apply(parse_date) < date.today())
+            (df["Vencimento"].apply(parse_date_str) < date.today())
         ]["Valor"].sum()
 
     budget = repos.get_budget(st.session_state.user_id, mes, ano)
@@ -155,81 +141,109 @@ def screen_app():
     st.caption(f"Período: **{mes_nome}/{ano}**")
 
     c1,c2,c3,c4,c5 = st.columns(5)
-    c1.metric("Total do mês", fmt(total))
-    c2.metric("Pago", fmt(pago))
-    c3.metric("Em aberto", fmt(aberto))
-    c4.metric("Em atraso", fmt(atraso))
-    c5.metric("Saldo (renda - total)", fmt(saldo))
+    c1.metric("Total do mês", fmt_brl(total))
+    c2.metric("Pago", fmt_brl(pago))
+    c3.metric("Em aberto", fmt_brl(aberto))
+    c4.metric("Em atraso", fmt_brl(atraso))
+    c5.metric("Saldo (renda - total)", fmt_brl(saldo))
 
     st.divider()
 
+    # ================= PAGAMENTOS =================
+    if page == "🧾 Pagamentos":
+        st.subheader("🧾 Pagamentos (normais e cartão)")
+
+        cats = repos.list_categories(st.session_state.user_id)
+        cat_map = {name: cid for cid, name in cats}
+        cat_names = ["(Sem categoria)"] + list(cat_map.keys())
+
+        with st.expander("➕ Adicionar pagamento", expanded=True):
+            a1,a2,a3,a4,a5 = st.columns([3,1,1.3,2,1])
+            desc = a1.text_input("Descrição")
+            val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0)
+            venc = a3.date_input("Vencimento")
+            cat_name = a4.selectbox("Categoria", cat_names)
+            parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1)
+
+            if st.button("Adicionar", type="primary"):
+                cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
+                repos.add_payment(
+                    st.session_state.user_id,
+                    desc,
+                    val,
+                    str(venc),
+                    mes,
+                    ano,
+                    cid,
+                    is_credit=1 if parcelas > 1 else 0,
+                    installments=parcelas
+                )
+                st.success("Pagamento adicionado")
+                st.rerun()
+
+        st.divider()
+
+        if df.empty:
+            st.info("Sem pagamentos neste período.")
+        else:
+            for r in rows:
+                (
+                    pid, desc, amount, due, paid, paid_date,
+                    cat_id, cat_name, is_credit, inst, inst_i, grp
+                ) = r
+
+                colA,colB,colC,colD,colE,colF,colG = st.columns([4,1.2,1.5,1.2,1.2,1,1])
+                titulo = desc
+                if is_credit:
+                    titulo += f" 💳 ({inst_i}/{inst})"
+
+                colA.write(f"**{titulo}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
+                colB.write(fmt_brl(float(amount)))
+                colC.write(str(due))
+                colD.write("✅ Pago" if paid else "🕓 Aberto")
+
+                if not paid:
+                    if colE.button("Marcar pago", key=f"pay_{pid}"):
+                        repos.mark_paid(st.session_state.user_id, pid, True)
+                        st.rerun()
+                else:
+                    if colE.button("Desfazer", key=f"unpay_{pid}"):
+                        repos.mark_paid(st.session_state.user_id, pid, False)
+                        st.rerun()
+
+                if colF.button("Editar", key=f"edit_{pid}"):
+                    st.session_state.edit_id = pid
+                    st.warning("Edição não aplicada a cartão parcelado.")
+                if colG.button("Excluir", key=f"del_{pid}"):
+                    repos.delete_payment(st.session_state.user_id, pid)
+                    st.rerun()
+
     # ================= DASHBOARD =================
-    if page == "📊 Dashboard":
+    elif page == "📊 Dashboard":
         st.subheader("📊 Dashboard")
 
         if df.empty:
             st.info("Sem dados para este período.")
         else:
-            df_d = df.copy()
-            df_d["Categoria"] = df_d["Categoria"].fillna("Sem categoria")
-            df_d["Status"] = df_d["Pago"].map({0: "Em aberto", 1: "Pago"})
+            df2 = df.copy()
+            df2["Categoria"] = df2["Categoria"].fillna("Sem categoria")
+            df2["Status"] = df2["Pago"].map({0: "Em aberto", 1: "Pago"})
 
-            col1, col2 = st.columns([2,1])
-
-            with col1:
-                fig1 = px.pie(
-                    df_d,
-                    names="Categoria",
-                    values="Valor",
-                    title="Gastos por categoria"
-                )
+            left,right = st.columns([2,1])
+            with left:
+                fig1 = px.pie(df2, names="Categoria", values="Valor", title="Gastos por categoria")
                 st.plotly_chart(fig1, use_container_width=True)
-
-            with col2:
-                resumo = df_d.groupby("Status", as_index=False)["Valor"].sum()
+            with right:
                 fig2 = px.bar(
-                    resumo,
-                    x="Status",
-                    y="Valor",
-                    title="Pago x Em aberto",
-                    text_auto=True
+                    df2.groupby("Status", as_index=False)["Valor"].sum(),
+                    x="Status", y="Valor",
+                    title="Pago x Em aberto"
                 )
                 st.plotly_chart(fig2, use_container_width=True)
 
             st.divider()
-            resumo_cat = (
-                df_d.groupby("Categoria", as_index=False)["Valor"]
-                .sum()
-                .sort_values("Valor", ascending=False)
-            )
-            st.dataframe(resumo_cat, use_container_width=True, hide_index=True)
-
-    # ================= PAGAMENTOS =================
-with st.expander("➕ Adicionar pagamento", expanded=True):
-    a1, a2, a3, a4, a5 = st.columns([3,1,1.3,2,1])
-
-    desc = a1.text_input("Descrição")
-    val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0)
-    venc = a3.date_input("Vencimento")
-    cat_name = a4.selectbox("Categoria", cat_names)
-    parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1)
-
-    if st.button("Adicionar", type="primary"):
-        cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
-        is_credit = 1 if parcelas > 1 else 0
-        repos.add_payment(
-            st.session_state.user_id,
-            desc,
-            val,
-            str(venc),
-            month,
-            year,
-            cid,
-            is_credit=is_credit,
-            installments=parcelas
-        )
-        st.success("Pagamento adicionado.")
-        st.rerun()
+            resumo = df2.groupby("Categoria", as_index=False)["Valor"].sum().sort_values("Valor", ascending=False)
+            st.dataframe(resumo, use_container_width=True, hide_index=True)
 
     # ================= CATEGORIAS =================
     elif page == "🏷️ Categorias":
@@ -256,12 +270,9 @@ with st.expander("➕ Adicionar pagamento", expanded=True):
 
     # ================= EXPORTAR =================
     elif page == "📤 Exportar":
-        st.subheader("📤 Exportar")
-        st.download_button(
-            "📊 Excel",
-            export_excel_bytes(df),
-            file_name="pagamentos.xlsx"
-        )
+        df_exp = repos.payments_dataframe(st.session_state.user_id, mes, ano)
+        st.dataframe(df_exp, use_container_width=True, hide_index=True)
+        st.download_button("📊 Excel", export_excel_bytes(df_exp), file_name="pagamentos.xlsx")
 
 # -------------------- Router --------------------
 if st.session_state.user_id is None:
