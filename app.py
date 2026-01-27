@@ -16,37 +16,65 @@ st.set_page_config(
 
 init_db()
 
-# ==================== CSS MOBILE ====================
+# ================= CSS MOBILE =================
 st.markdown("""
 <style>
+
+/* Área principal */
+.block-container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* Título */
+h1 {
+    font-size: 1.6rem !important;
+    line-height: 1.2;
+}
+
+/* Inputs legíveis (principal correção) */
+input, textarea {
+    color: #000000 !important;
+    background-color: #f5f6f8 !important;
+    font-size: 16px !important;
+}
+
+/* Placeholder */
+input::placeholder {
+    color: #666 !important;
+}
+
+/* Campo senha – corrigir ícone do olho */
+[data-testid="stPasswordInput"] {
+    position: relative;
+}
+
+[data-testid="stPasswordInput"] input {
+    padding-right: 44px !important;
+}
+
+[data-testid="stPasswordInput"] button {
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+}
+
+/* Botões no mobile */
+button {
+    width: 100%;
+}
+
+/* Ajustes específicos mobile */
 @media (max-width: 768px) {
-    .block-container {
-        padding-left: 1rem;
-        padding-right: 1rem;
-    }
-
     h1 {
-        font-size: 1.6rem !important;
-        line-height: 1.2;
-    }
-
-    button {
-        width: 100%;
-        font-size: 1rem;
-        padding: 0.6rem;
-    }
-
-    input, textarea {
-        font-size: 16px !important;
-    }
-
-    .auth-box {
-        font-size: 0.9rem;
-        padding: 10px;
+        font-size: 1.4rem !important;
     }
 }
+
 </style>
 """, unsafe_allow_html=True)
+
 
 # ==================== CONSTANTES ====================
 MESES = [
