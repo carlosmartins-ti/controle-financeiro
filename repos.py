@@ -238,4 +238,35 @@ def mark_credit_invoice_paid(user_id: int, month: int, year: int):
     )
 
     conn.commit()
+    conn.close() 
+
+
+ def unmark_credit_invoice_paid(user_id: int, month: int, year: int):
+    """
+    Desfaz o pagamento de TODAS as despesas do cartão de crédito
+    do mês/ano informado.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        UPDATE payments
+        SET paid = 0,
+            paid_date = NULL
+        WHERE user_id = ?
+          AND month = ?
+          AND year = ?
+          AND category_id IN (
+              SELECT id
+              FROM categories
+              WHERE user_id = ?
+                AND LOWER(name) LIKE '%cart%'
+          )
+        """,
+        (user_id, month, year, user_id)
+    )
+
+    conn.commit()
     conn.close()
+
