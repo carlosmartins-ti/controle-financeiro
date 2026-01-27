@@ -61,6 +61,7 @@ def ensure_default_categories(user_id: int):
     conn.close()
 
 
+
 # ==================================================
 # GARANTE CATEGORIAS PADRÃO
 # ==================================================
