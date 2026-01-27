@@ -173,7 +173,6 @@ def screen_app():
             desc = a1.text_input("Descrição", key="add_desc")
             val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0, key="add_val")
             venc = a3.date_input("Vencimento", key="add_due")
-            a3.caption(f"📅 Data selecionada: **{venc.strftime('%d/%m/%Y')}**")
             cat_name = a4.selectbox("Categoria", cat_names, key="add_cat")
             parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1, key="add_parc")
 
