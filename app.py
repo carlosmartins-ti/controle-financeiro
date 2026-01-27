@@ -16,23 +16,30 @@ st.set_page_config(
 
 init_db()
 
-# ==================== CSS GLOBAL (MOBILE + DARK/LIGHT) ====================
+# ==================== CSS GLOBAL (LIGHT/DARK + MOBILE FIX) ====================
 st.markdown("""
 <style>
 
 /* ===============================
-   INPUTS (TEXT / TEXTAREA)
+   BASE (HERDA O TEMA DO STREAMLIT)
+   =============================== */
+:root {
+    --text-color: rgba(255,255,255,0.95);
+}
+
+/* ===============================
+   INPUTS TEXTO
    =============================== */
 div[data-testid="stTextInput"] input,
 div[data-testid="stTextArea"] textarea {
     background-color: rgba(255,255,255,0.08) !important;
     color: var(--text-color) !important;
-    border-radius: 6px !important;
-    border: 1px solid rgba(255,255,255,0.15) !important;
+    border: 1px solid rgba(255,255,255,0.25) !important;
     font-size: 16px !important;
+    height: 44px !important;
 }
 
-/* Placeholder */
+/* PLACEHOLDER */
 div[data-testid="stTextInput"] input::placeholder,
 div[data-testid="stTextArea"] textarea::placeholder {
     color: rgba(180,180,180,0.9) !important;
@@ -48,19 +55,21 @@ div[data-testid="stPasswordInput"] {
 div[data-testid="stPasswordInput"] input {
     background-color: rgba(255,255,255,0.08) !important;
     color: var(--text-color) !important;
-    padding-right: 48px !important;
-    height: 42px !important;
-    line-height: 42px !important;
+    padding-right: 52px !important;
+    height: 44px !important;
     font-size: 16px !important;
 }
 
-/* ÍCONE DO OLHO — FIX MOBILE */
+/* 👁️ ÍCONE DO OLHO CENTRALIZADO */
 div[data-testid="stPasswordInput"] button {
     position: absolute !important;
-    right: 10px !important;
-    top: 6px !important;
-    height: 30px !important;
-    width: 30px !important;
+    right: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    height: 28px !important;
+    width: 28px !important;
+    padding: 0 !important;
+    margin: 0 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -77,7 +86,6 @@ div[data-testid="stPasswordInput"] button {
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 16px;
-    font-size: 14px;
 }
 
 /* ===============================
@@ -90,6 +98,11 @@ div[data-testid="stPasswordInput"] button {
 
     button {
         width: 100%;
+    }
+
+    .block-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
     }
 }
 
@@ -122,19 +135,15 @@ for k in ["user_id", "username"]:
 # ==================== AUTH ====================
 def screen_auth():
     st.title("💳 Controle Financeiro")
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
-    st.markdown(
-        """
+    st.markdown("""
         <div class="auth-box">
         🔐 <b>Autenticação e autoria do projeto</b><br>
         Aplicação desenvolvida por <b>Carlos Martins</b>.<br>
         Para dúvidas, sugestões ou suporte técnico:<br>
         📧 <a href="mailto:cr954479@gmail.com">cr954479@gmail.com</a>
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
 
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
@@ -232,57 +241,6 @@ def screen_app():
     c4.metric("Saldo", fmt_brl(saldo))
 
     st.divider()
-
-    # ================= DESPESAS =================
-    if page == "🧾 Despesas":
-        st.subheader("🧾 Despesas")
-
-        cats = repos.list_categories(st.session_state.user_id)
-        cat_map = {name: cid for cid, name in cats}
-        cat_names = ["(Sem categoria)"] + list(cat_map.keys())
-
-        with st.expander("➕ Adicionar despesa", expanded=True):
-            desc = st.text_input("Descrição")
-            val = st.number_input("Valor (R$)", min_value=0.0)
-            venc = st.date_input("Vencimento", format="DD/MM/YYYY")
-            cat_name = st.selectbox("Categoria", cat_names)
-            parcelas = st.number_input("Parcelas", min_value=1, value=1)
-
-            if st.button("Adicionar"):
-                cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
-                repos.add_payment(
-                    st.session_state.user_id,
-                    desc,
-                    val,
-                    str(venc),
-                    month,
-                    year,
-                    cid,
-                    is_credit=1 if parcelas > 1 else 0,
-                    installments=parcelas
-                )
-                st.rerun()
-
-        st.divider()
-
-        for r in rows:
-            pid, desc, amount, due, paid = r[0], r[1], r[2], r[3], r[4]
-            cat_name = r[7]
-
-            a,b,c,d,e = st.columns([4,1.2,1.5,1.2,1])
-            a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
-            b.write(fmt_brl(amount))
-            c.write(fmt_date_br(due))
-            d.write("✅ Paga" if paid else "🕓 Aberta")
-
-            if not paid:
-                if e.button("Pagar", key=f"pay_{pid}"):
-                    repos.mark_paid(st.session_state.user_id, pid, True)
-                    st.rerun()
-            else:
-                if e.button("Desfazer", key=f"unpay_{pid}"):
-                    repos.mark_paid(st.session_state.user_id, pid, False)
-                    st.rerun()
 
 # ==================== ROUTER ====================
 if st.session_state.user_id is None:
