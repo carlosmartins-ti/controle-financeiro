@@ -15,51 +15,74 @@ st.set_page_config(
 )
 
 init_db()
+
+# ==================== CSS GLOBAL (MOBILE + DARK/LIGHT) ====================
 st.markdown("""
 <style>
 
 /* ===============================
-   DARK / LIGHT MODE REAL (STREAMLIT)
+   INPUTS (TEXT / TEXTAREA)
    =============================== */
-
-/* INPUTS TEXTO */
 div[data-testid="stTextInput"] input,
 div[data-testid="stTextArea"] textarea {
-    background-color: var(--background-color) !important;
+    background-color: rgba(255,255,255,0.08) !important;
     color: var(--text-color) !important;
-    border: 1px solid rgba(255,255,255,0.2) !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
     font-size: 16px !important;
 }
 
-/* PLACEHOLDER */
+/* Placeholder */
 div[data-testid="stTextInput"] input::placeholder,
 div[data-testid="stTextArea"] textarea::placeholder {
-    color: rgba(150,150,150,0.9) !important;
+    color: rgba(180,180,180,0.9) !important;
 }
 
-/* PASSWORD INPUT */
+/* ===============================
+   PASSWORD INPUT (CORRIGIDO)
+   =============================== */
+div[data-testid="stPasswordInput"] {
+    position: relative;
+}
+
 div[data-testid="stPasswordInput"] input {
-    background-color: var(--background-color) !important;
+    background-color: rgba(255,255,255,0.08) !important;
     color: var(--text-color) !important;
     padding-right: 48px !important;
+    height: 42px !important;
+    line-height: 42px !important;
+    font-size: 16px !important;
 }
 
-/* ÍCONE DO OLHO */
+/* ÍCONE DO OLHO — FIX MOBILE */
 div[data-testid="stPasswordInput"] button {
     position: absolute !important;
     right: 10px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
+    top: 6px !important;
+    height: 30px !important;
+    width: 30px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     background: transparent !important;
 }
 
-/* BOX DE AUTENTICAÇÃO */
+/* ===============================
+   BOX DE AUTENTICAÇÃO
+   =============================== */
 .auth-box {
     background-color: rgba(255,255,255,0.08) !important;
     color: var(--text-color) !important;
+    border-left: 5px solid #4f8bf9;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+    font-size: 14px;
 }
 
-/* MOBILE */
+/* ===============================
+   MOBILE
+   =============================== */
 @media (max-width: 768px) {
     h1 {
         font-size: 1.4rem !important;
@@ -72,8 +95,6 @@ div[data-testid="stPasswordInput"] button {
 
 </style>
 """, unsafe_allow_html=True)
-
-
 
 # ==================== CONSTANTES ====================
 MESES = [
@@ -101,15 +122,11 @@ for k in ["user_id", "username"]:
 # ==================== AUTH ====================
 def screen_auth():
     st.title("💳 Controle Financeiro")
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     st.markdown(
         """
-        <div class="auth-box" style="
-            background-color:#f0f2f6;
-            border-left:5px solid #4f8bf9;
-            border-radius:8px;
-            margin-bottom:16px;
-        ">
+        <div class="auth-box">
         🔐 <b>Autenticação e autoria do projeto</b><br>
         Aplicação desenvolvida por <b>Carlos Martins</b>.<br>
         Para dúvidas, sugestões ou suporte técnico:<br>
@@ -249,11 +266,7 @@ def screen_app():
         st.divider()
 
         for r in rows:
-            pid = r[0]
-            desc = r[1]
-            amount = r[2]
-            due = r[3]
-            paid = r[4]
+            pid, desc, amount, due, paid = r[0], r[1], r[2], r[3], r[4]
             cat_name = r[7]
 
             a,b,c,d,e = st.columns([4,1.2,1.5,1.2,1])
@@ -270,35 +283,6 @@ def screen_app():
                 if e.button("Desfazer", key=f"unpay_{pid}"):
                     repos.mark_paid(st.session_state.user_id, pid, False)
                     st.rerun()
-
-    # ================= DASHBOARD =================
-    elif page == "📊 Dashboard":
-        if not df.empty:
-            df["categoria"] = df["categoria"].fillna("Sem categoria")
-            fig = px.pie(df, names="categoria", values="valor")
-            st.plotly_chart(fig, use_container_width=True)
-
-    # ================= CATEGORIAS =================
-    elif page == "🏷️ Categorias":
-        new_cat = st.text_input("Nova categoria")
-        if st.button("Adicionar categoria"):
-            repos.create_category(st.session_state.user_id, new_cat)
-            st.rerun()
-
-        for cid, name in repos.list_categories(st.session_state.user_id):
-            a,b = st.columns([4,1])
-            a.write(name)
-            if b.button("Excluir", key=f"cat_{cid}"):
-                repos.delete_category(st.session_state.user_id, cid)
-                st.rerun()
-
-    # ================= PLANEJAMENTO =================
-    elif page == "💰 Planejamento":
-        renda = st.number_input("Renda mensal", value=float(budget["income"]))
-        meta = st.number_input("Meta de gastos", value=float(budget["expense_goal"]))
-        if st.button("Salvar planejamento"):
-            repos.upsert_budget(st.session_state.user_id, month, year, renda, meta)
-            st.success("Planejamento salvo!")
 
 # ==================== ROUTER ====================
 if st.session_state.user_id is None:
