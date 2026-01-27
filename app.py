@@ -39,7 +39,8 @@ for k in ["user_id", "username"]:
 def screen_auth():
     st.title("💳 Controle Financeiro")
 
-        st.markdown(
+    # 🔐 Mensagem institucional
+    st.markdown(
         """
         <div style="
             padding:12px;
@@ -58,26 +59,27 @@ def screen_auth():
         unsafe_allow_html=True
     )
 
-
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
+    # -------- Entrar --------
     with t1:
         u = st.text_input("Usuário", key="login_user")
         p = st.text_input("Senha", type="password", key="login_pass")
 
         if st.button("Entrar", key="btn_login", use_container_width=True):
             uid = authenticate(u, p)
-
             if uid:
                 st.session_state.user_id = uid
                 st.session_state.username = u.strip().lower()
 
+                # categorias padrão
                 repos.ensure_default_categories(uid)
 
                 st.rerun()
             else:
                 st.error("Usuário ou senha inválidos.")
 
+    # -------- Criar conta --------
     with t2:
         u = st.text_input("Novo usuário", key="signup_user")
         p = st.text_input("Nova senha", type="password", key="signup_pass")
@@ -97,6 +99,7 @@ def screen_auth():
             create_user(u, p, q, a)
             st.success("Conta criada! Faça login.")
 
+    # -------- Recuperar senha --------
     with t3:
         u = st.text_input("Usuário", key="reset_user")
         q = get_security_question(u) if u else None
@@ -137,7 +140,8 @@ def screen_app():
         rows,
         columns=[
             "id","Descrição","Valor","Vencimento","Pago","Data pagamento",
-            "CategoriaID","Categoria","is_credit","installments","installment_index","credit_group"
+            "CategoriaID","Categoria","is_credit","installments",
+            "installment_index","credit_group"
         ]
     )
 
@@ -152,7 +156,7 @@ def screen_app():
     st.title("💳 Controle Financeiro")
     st.caption(f"Período: **{month_label}/{year}**")
 
-    c1,c2,c3,c4 = st.columns(4)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total do mês", fmt_brl(total))
     c2.metric("Pago", fmt_brl(pago))
     c3.metric("Em aberto", fmt_brl(aberto))
@@ -169,14 +173,14 @@ def screen_app():
         cat_names = ["(Sem categoria)"] + list(cat_map.keys())
 
         with st.expander("➕ Adicionar despesa", expanded=True):
-            a1,a2,a3,a4,a5 = st.columns([3,1,1.3,2,1])
-            desc = a1.text_input("Descrição", key="add_desc")
-            val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0, key="add_val")
-            venc = a3.date_input("Vencimento", format="DD/MM/YYYY", key="add_due")
-            cat_name = a4.selectbox("Categoria", cat_names, key="add_cat")
-            parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1, key="add_parc")
+            a1, a2, a3, a4, a5 = st.columns([3,1,1.3,2,1])
+            desc = a1.text_input("Descrição")
+            val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0)
+            venc = a3.date_input("Vencimento", format="DD/MM/YYYY")
+            cat_name = a4.selectbox("Categoria", cat_names)
+            parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1)
 
-            if st.button("Adicionar", type="primary", key="btn_add"):
+            if st.button("Adicionar", type="primary"):
                 cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
                 repos.add_payment(
                     st.session_state.user_id,
@@ -194,7 +198,7 @@ def screen_app():
         st.divider()
 
         for r in rows:
-            pid, desc, amount, due, paid, _, _, cat_name, *_ = r
+            pid, desc, amount, due, paid, *_ , cat_name, *_ = r
             a,b,c,d,e,f = st.columns([4,1.2,1.5,1.2,1.2,1])
             a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
             b.write(fmt_brl(amount))
@@ -214,7 +218,6 @@ def screen_app():
                 repos.delete_payment(st.session_state.user_id, pid)
                 st.rerun()
 
-    # ================= DASHBOARD =================
     elif page == "📊 Dashboard":
         st.subheader("📊 Dashboard")
         if not df.empty:
@@ -223,10 +226,9 @@ def screen_app():
             fig = px.pie(df2, names="Categoria", values="Valor")
             st.plotly_chart(fig, use_container_width=True)
 
-    # ================= CATEGORIAS =================
     elif page == "🏷️ Categorias":
         st.subheader("🏷️ Categorias")
-        new_cat = st.text_input("Nova categoria", key="new_cat")
+        new_cat = st.text_input("Nova categoria")
         if st.button("Adicionar"):
             repos.create_category(st.session_state.user_id, new_cat)
             st.rerun()
@@ -238,7 +240,6 @@ def screen_app():
                 repos.delete_category(st.session_state.user_id, cid)
                 st.rerun()
 
-    # ================= PLANEJAMENTO =================
     elif page == "💰 Planejamento":
         st.subheader("💰 Planejamento")
         renda_v = st.number_input("Renda", value=float(renda))
