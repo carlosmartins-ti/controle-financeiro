@@ -4,6 +4,43 @@ from database import get_connection
 def _now():
     return datetime.datetime.now().isoformat(timespec="seconds")
 
+# -------------------- Default Categories --------------------
+DEFAULT_CATEGORIES = [
+    "Aluguel",
+    "Condomínio",
+    "Água",
+    "Luz",
+    "Plano celular",
+    "Internet",
+    "Supermercado",
+    "Restaurante",
+    "Delivery / iFood",
+    "Refeição trabalho",
+    "TV / Streaming",
+    "Transporte",
+    "Cartão de crédito",
+    "Contas fixas",
+    "Lazer",
+    "Saúde",
+    "Educação",
+    "Poupança",
+    "Roupas",
+    "Calçados",
+    "Cosméticos",
+    "Farmácia",
+    "Academia",
+    "Barbeiro / Salão",
+    "Cinema",
+    "Viagem",
+    "Passeios",
+    "Jogos",
+    "Bares / festas",
+    "Faculdade",
+    "Móveis",
+    "Outros",
+    "Imprevistos",
+]
+
 # -------------------- Categories --------------------
 def list_categories(user_id: int):
     conn = get_connection()
@@ -40,6 +77,30 @@ def delete_category(user_id: int, category_id: int):
         "DELETE FROM categories WHERE user_id = ? AND id = ?",
         (user_id, category_id)
     )
+    conn.commit()
+    conn.close()
+
+def seed_default_categories(user_id: int):
+    """
+    Cria categorias padrão para o usuário, se ainda não existirem.
+    Pode ser chamado múltiplas vezes sem duplicar registros.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        "SELECT LOWER(name) FROM categories WHERE user_id = ?",
+        (user_id,)
+    )
+    existing = {row[0] for row in cur.fetchall()}
+
+    for name in DEFAULT_CATEGORIES:
+        if name.lower() not in existing:
+            cur.execute(
+                "INSERT INTO categories (user_id, name, created_at) VALUES (?, ?, ?)",
+                (user_id, name, _now())
+            )
+
     conn.commit()
     conn.close()
 
