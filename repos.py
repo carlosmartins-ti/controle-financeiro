@@ -83,23 +83,20 @@ def delete_category(user_id: int, category_id: int):
 def seed_default_categories(user_id: int):
     """
     Cria categorias padrão para o usuário, se ainda não existirem.
-    Pode ser chamado múltiplas vezes sem duplicar registros.
+    Compatível com schema sem coluna created_at.
+    Pode ser chamada várias vezes sem erro.
     """
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute(
-        "SELECT LOWER(name) FROM categories WHERE user_id = ?",
-        (user_id,)
-    )
-    existing = {row[0] for row in cur.fetchall()}
-
     for name in DEFAULT_CATEGORIES:
-        if name.lower() not in existing:
-            cur.execute(
-                "INSERT INTO categories (user_id, name, created_at) VALUES (?, ?, ?)",
-                (user_id, name, _now())
-            )
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO categories (user_id, name)
+            VALUES (?, ?)
+            """,
+            (user_id, name)
+        )
 
     conn.commit()
     conn.close()
