@@ -12,8 +12,9 @@ def hash_text(text: str) -> str:
 def verify_text(text: str, hashed: str) -> bool:
     return bcrypt.checkpw(text.encode("utf-8"), hashed.encode("utf-8"))
 
-def create_user(username: str, password: str, security_question: str, security_answer: str):
-    if not username or not password:
+def create_user(username, password, question, answer):
+    username = username.strip().lower()
+    ...
         raise ValueError("Usuário e senha são obrigatórios.")
     if len(password) < 4:
         raise ValueError("Senha muito curta (mínimo 4).")
