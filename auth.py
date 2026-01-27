@@ -1,4 +1,3 @@
-
 import bcrypt
 import datetime
 from database import get_connection
