@@ -8,11 +8,9 @@ from auth import authenticate, create_user, get_security_question, reset_passwor
 import repos
 from export_utils import export_excel_bytes, export_pdf_bytes
 
-
 # -------------------- Setup --------------------
 st.set_page_config(page_title="Controle Financeiro", page_icon="💳", layout="wide")
 init_db()
-
 
 def inject_css():
     try:
@@ -21,12 +19,9 @@ def inject_css():
     except FileNotFoundError:
         pass
 
-
 inject_css()
 
-# ========================
-# CONTROLE DE UI (ADMIN)
-# ========================
+# -------------------- UI CONTROL --------------------
 def hide_share_only():
     st.markdown(
         """
@@ -39,51 +34,35 @@ def hide_share_only():
         unsafe_allow_html=True
     )
 
-
 if st.session_state.get("username") != "carlos.martins":
     hide_share_only()
 
-
 # -------------------- Session --------------------
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-if "username" not in st.session_state:
-    st.session_state.username = None
-if "edit_id" not in st.session_state:
-    st.session_state.edit_id = None
-
+for k in ["user_id", "username", "edit_id"]:
+    if k not in st.session_state:
+        st.session_state[k] = None
 
 MESES = [
     "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
 ]
 
-CATEGORIA_CARTAO = "Cartão de crédito"
-
-
-def fmt_brl(v):
+def fmt(v):
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-
-def parse_date_str(s):
+def parse_date(s):
     try:
         return datetime.fromisoformat(str(s)).date()
     except:
-        try:
-            return datetime.strptime(str(s), "%Y-%m-%d").date()
-        except:
-            return date.today()
-
+        return date.today()
 
 # -------------------- Auth --------------------
 def screen_auth():
     st.title("💳 Controle Financeiro")
 
-    tab_login, tab_signup, tab_reset = st.tabs(
-        ["Entrar", "Criar conta", "Recuperar senha"]
-    )
+    t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
-    with tab_login:
+    with t1:
         u = st.text_input("Usuário")
         p = st.text_input("Senha", type="password")
         if st.button("Entrar", use_container_width=True):
@@ -95,53 +74,48 @@ def screen_auth():
             else:
                 st.error("Usuário ou senha inválidos")
 
-    with tab_signup:
+    with t2:
         u = st.text_input("Novo usuário")
         p = st.text_input("Nova senha", type="password")
         q = st.selectbox(
             "Pergunta de segurança",
             [
-                "Qual o nome do seu primeiro pet?",
-                "Qual o nome da sua mãe?",
-                "Qual sua cidade de nascimento?",
-                "Qual seu filme favorito?",
+                "Nome do primeiro pet?",
+                "Nome da mãe?",
+                "Cidade onde nasceu?",
+                "Filme favorito?"
             ]
         )
         a = st.text_input("Resposta")
         if st.button("Criar conta", type="primary", use_container_width=True):
-            try:
-                create_user(u, p, q, a)
-                st.success("Conta criada! Faça login.")
-            except Exception as e:
-                st.error(str(e))
+            create_user(u, p, q, a)
+            st.success("Conta criada")
 
-    with tab_reset:
+    with t3:
         u = st.text_input("Usuário")
         q = get_security_question(u) if u else None
         if q:
             st.info(q)
             a = st.text_input("Resposta")
             np = st.text_input("Nova senha", type="password")
-            if st.button("Redefinir senha", use_container_width=True):
+            if st.button("Redefinir senha"):
                 if reset_password(u, a, np):
                     st.success("Senha alterada")
                 else:
                     st.error("Resposta incorreta")
 
-
-# -------------------- Main app --------------------
+# -------------------- App --------------------
 def screen_app():
     with st.sidebar:
         st.markdown(f"**Usuário:** `{st.session_state.username}`")
 
         today = date.today()
-        month_label = st.selectbox("Mês", MESES, index=today.month-1)
-        year = st.selectbox("Ano", list(range(today.year-2, today.year+3)), index=2)
-        month = MESES.index(month_label) + 1
+        mes_nome = st.selectbox("Mês", MESES, index=today.month-1)
+        ano = st.selectbox("Ano", list(range(today.year-2, today.year+3)), index=2)
+        mes = MESES.index(mes_nome) + 1
 
         st.divider()
 
-        # 🔴 AQUI ESTÁ A CORREÇÃO CRÍTICA
         page = st.radio(
             "Menu",
             ["📊 Dashboard", "🧾 Pagamentos", "🏷️ Categorias", "💰 Planejamento", "📤 Exportar"],
@@ -149,97 +123,122 @@ def screen_app():
         )
 
         st.divider()
-
         if st.button("Sair", use_container_width=True):
             st.session_state.user_id = None
             st.session_state.username = None
             st.session_state.edit_id = None
             st.rerun()
 
-    rows = repos.list_payments(st.session_state.user_id, month, year)
+    # -------- Dados base --------
+    rows = repos.list_payments(st.session_state.user_id, mes, ano)
     df = pd.DataFrame(
         rows,
         columns=["id","Descrição","Valor","Vencimento","Pago","Data pagamento","CategoriaID","Categoria"]
     )
 
-    total = float(df["Valor"].sum()) if not df.empty else 0.0
-    total_pago = float(df.loc[df["Pago"]==1, "Valor"].sum()) if not df.empty else 0.0
-    total_aberto = total - total_pago
+    total = df["Valor"].sum() if not df.empty else 0
+    pago = df[df["Pago"] == 1]["Valor"].sum() if not df.empty else 0
+    aberto = total - pago
 
-    overdue = 0.0
+    atraso = 0.0
     if not df.empty:
-        overdue = float(
-            df[
-                (df["Pago"] == 0)
-                & (df["Vencimento"].apply(parse_date_str) < date.today())
-            ]["Valor"].sum()
-        )
+        atraso = df[
+            (df["Pago"] == 0) &
+            (df["Vencimento"].apply(parse_date) < date.today())
+        ]["Valor"].sum()
 
-    budget = repos.get_budget(st.session_state.user_id, month, year)
-    income = float(budget["income"])
-    saldo = income - total
+    budget = repos.get_budget(st.session_state.user_id, mes, ano)
+    renda = float(budget["income"])
+    saldo = renda - total
 
     st.title("💳 Controle Financeiro")
-    st.caption(f"Período: **{MESES[month-1]}/{year}**")
+    st.caption(f"Período: **{mes_nome}/{ano}**")
 
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Total do mês", fmt_brl(total))
-    c2.metric("Pago", fmt_brl(total_pago))
-    c3.metric("Em aberto", fmt_brl(total_aberto))
-    c4.metric("Em atraso", fmt_brl(overdue))
-    c5.metric("Saldo (renda - total)", fmt_brl(saldo))
+    c1,c2,c3,c4,c5 = st.columns(5)
+    c1.metric("Total do mês", fmt(total))
+    c2.metric("Pago", fmt(pago))
+    c3.metric("Em aberto", fmt(aberto))
+    c4.metric("Em atraso", fmt(atraso))
+    c5.metric("Saldo (renda - total)", fmt(saldo))
 
     st.divider()
-# ================= DASHBOARD =================
-if page == "📊 Dashboard":
-    st.subheader("📊 Dashboard")
 
-    if df.empty:
-        st.info("Sem dados para este mês/ano.")
-    else:
-        # normaliza categorias vazias
-        df_dash = df.copy()
-        df_dash["Categoria"] = df_dash["Categoria"].fillna("Sem categoria")
-        df_dash["Status"] = df_dash["Pago"].map({0: "Em aberto", 1: "Pago"})
+    # ================= DASHBOARD =================
+    if page == "📊 Dashboard":
+        st.subheader("📊 Dashboard")
 
-        col1, col2 = st.columns([2, 1])
+        if df.empty:
+            st.info("Sem dados para este período.")
+        else:
+            df_d = df.copy()
+            df_d["Categoria"] = df_d["Categoria"].fillna("Sem categoria")
+            df_d["Status"] = df_d["Pago"].map({0: "Em aberto", 1: "Pago"})
 
-        with col1:
-            fig_cat = px.pie(
-                df_dash,
-                names="Categoria",
-                values="Valor",
-                title="Gastos por categoria"
-            )
-            st.plotly_chart(fig_cat, use_container_width=True)
+            col1, col2 = st.columns([2,1])
 
-        with col2:
-            resumo_status = (
-                df_dash.groupby("Status", as_index=False)["Valor"]
+            with col1:
+                fig1 = px.pie(
+                    df_d,
+                    names="Categoria",
+                    values="Valor",
+                    title="Gastos por categoria"
+                )
+                st.plotly_chart(fig1, use_container_width=True)
+
+            with col2:
+                resumo = df_d.groupby("Status", as_index=False)["Valor"].sum()
+                fig2 = px.bar(
+                    resumo,
+                    x="Status",
+                    y="Valor",
+                    title="Pago x Em aberto",
+                    text_auto=True
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+
+            st.divider()
+            resumo_cat = (
+                df_d.groupby("Categoria", as_index=False)["Valor"]
                 .sum()
+                .sort_values("Valor", ascending=False)
             )
-            fig_status = px.bar(
-                resumo_status,
-                x="Status",
-                y="Valor",
-                title="Pago x Em aberto",
-                text_auto=True
-            )
-            st.plotly_chart(fig_status, use_container_width=True)
+            st.dataframe(resumo_cat, use_container_width=True, hide_index=True)
 
-        st.divider()
+    # ================= PAGAMENTOS =================
+    elif page == "🧾 Pagamentos":
+        st.subheader("🧾 Pagamentos")
+        st.dataframe(df, use_container_width=True)
 
-        resumo_cat = (
-            df_dash.groupby("Categoria", as_index=False)["Valor"]
-            .sum()
-            .sort_values("Valor", ascending=False)
-        )
+    # ================= CATEGORIAS =================
+    elif page == "🏷️ Categorias":
+        st.subheader("🏷️ Categorias")
+        new_cat = st.text_input("Nova categoria")
+        if st.button("Adicionar"):
+            repos.create_category(st.session_state.user_id, new_cat)
+            st.rerun()
+        for cid, name in repos.list_categories(st.session_state.user_id):
+            a,b = st.columns([4,1])
+            a.write(name)
+            if b.button("Excluir", key=f"c_{cid}"):
+                repos.delete_category(st.session_state.user_id, cid)
+                st.rerun()
 
-        st.markdown("### 📌 Resumo por categoria")
-        st.dataframe(
-            resumo_cat,
-            use_container_width=True,
-            hide_index=True
+    # ================= PLANEJAMENTO =================
+    elif page == "💰 Planejamento":
+        st.subheader("💰 Planejamento")
+        renda_v = st.number_input("Renda", value=float(renda))
+        meta_v = st.number_input("Meta de gastos", value=float(budget["expense_goal"]))
+        if st.button("Salvar"):
+            repos.upsert_budget(st.session_state.user_id, mes, ano, renda_v, meta_v)
+            st.success("Planejamento salvo")
+
+    # ================= EXPORTAR =================
+    elif page == "📤 Exportar":
+        st.subheader("📤 Exportar")
+        st.download_button(
+            "📊 Excel",
+            export_excel_bytes(df),
+            file_name="pagamentos.xlsx"
         )
 
 # -------------------- Router --------------------
