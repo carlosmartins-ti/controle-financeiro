@@ -16,14 +16,19 @@ MESES = [
     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
 ]
 
+# -------------------- FORMATADORES --------------------
 def fmt_brl(v):
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-def parse_date_str(s):
+def fmt_date_br(d):
+    if not d:
+        return ""
+    if isinstance(d, date):
+        return d.strftime("%d/%m/%Y")
     try:
-        return datetime.fromisoformat(str(s)).date()
+        return datetime.strptime(str(d), "%Y-%m-%d").strftime("%d/%m/%Y")
     except:
-        return datetime.strptime(str(s), "%Y-%m-%d").date()
+        return str(d)
 
 # -------------------- Session --------------------
 for k in ["user_id", "username"]:
@@ -47,13 +52,11 @@ def screen_auth():
                 st.session_state.user_id = uid
                 st.session_state.username = u.strip().lower()
 
-                # 👉 categorias padrão logo após login
                 repos.ensure_default_categories(uid)
 
                 st.rerun()
             else:
                 st.error("Usuário ou senha inválidos.")
-
 
     with t2:
         u = st.text_input("Novo usuário", key="signup_user")
@@ -149,7 +152,7 @@ def screen_app():
             a1,a2,a3,a4,a5 = st.columns([3,1,1.3,2,1])
             desc = a1.text_input("Descrição", key="add_desc")
             val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0, key="add_val")
-            venc = a3.date_input("Vencimento", key="add_due")
+            venc = a3.date_input("Vencimento", format="DD/MM/YYYY", key="add_due")
             cat_name = a4.selectbox("Categoria", cat_names, key="add_cat")
             parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1, key="add_parc")
 
@@ -168,34 +171,6 @@ def screen_app():
                 )
                 st.rerun()
 
-        # ---- FATURA DO CARTÃO ----
-        credit_rows = [
-            r for r in rows
-            if r[7] and "cart" in r[7].lower()
-        ]
-
-        if credit_rows:
-            open_credit = [r for r in credit_rows if r[4] == 0]
-            total_fatura = sum(float(r[2]) for r in open_credit)
-
-            st.divider()
-            st.subheader("💳 Fatura do cartão")
-            c1,c2 = st.columns([3,1])
-            c1.metric("Total em aberto", fmt_brl(total_fatura))
-
-            if open_credit:
-                if c2.button("💰 Pagar fatura do cartão"):
-                    repos.mark_credit_invoice_paid(
-                        st.session_state.user_id, month, year
-                    )
-                    st.rerun()
-            else:
-                if c2.button("🔄 Desfazer pagamento da fatura"):
-                    repos.unmark_credit_invoice_paid(
-                        st.session_state.user_id, month, year
-                    )
-                    st.rerun()
-
         st.divider()
 
         for r in rows:
@@ -203,7 +178,7 @@ def screen_app():
             a,b,c,d,e,f = st.columns([4,1.2,1.5,1.2,1.2,1])
             a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
             b.write(fmt_brl(amount))
-            c.write(due)
+            c.write(fmt_date_br(due))
             d.write("✅ Paga" if paid else "🕓 Em aberto")
 
             if not paid:
@@ -222,7 +197,6 @@ def screen_app():
     # ================= DASHBOARD =================
     elif page == "📊 Dashboard":
         st.subheader("📊 Dashboard")
-
         if not df.empty:
             df2 = df.copy()
             df2["Categoria"] = df2["Categoria"].fillna("Sem categoria")
