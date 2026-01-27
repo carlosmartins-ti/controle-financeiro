@@ -15,6 +15,75 @@ st.set_page_config(
 )
 
 init_db()
+st.markdown("""
+<style>
+
+/* ===============================
+   DETECÇÃO AUTOMÁTICA DE TEMA
+   =============================== */
+
+/* ===== MODO CLARO ===== */
+@media (prefers-color-scheme: light) {
+
+    input, textarea {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+
+    input::placeholder {
+        color: #555555 !important;
+    }
+}
+
+/* ===== MODO ESCURO ===== */
+@media (prefers-color-scheme: dark) {
+
+    input, textarea {
+        background-color: #1f2937 !important; /* cinza escuro */
+        color: #ffffff !important;
+        border: 1px solid #374151 !important;
+    }
+
+    input::placeholder {
+        color: #9ca3af !important;
+    }
+}
+
+/* ===============================
+   PASSWORD (OLHO)
+   =============================== */
+div[data-testid="stPasswordInput"] {
+    position: relative;
+}
+
+div[data-testid="stPasswordInput"] input {
+    padding-right: 48px !important;
+}
+
+div[data-testid="stPasswordInput"] button {
+    position: absolute !important;
+    right: 10px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background: transparent !important;
+}
+
+/* ===============================
+   MOBILE
+   =============================== */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 1.4rem !important;
+    }
+
+    button {
+        width: 100%;
+    }
+}
+
+</style>
+""", unsafe_allow_html=True)
+
 
 # ================= CSS MOBILE =================
 st.markdown("""
