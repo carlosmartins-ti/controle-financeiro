@@ -8,7 +8,7 @@ from auth import authenticate, create_user, get_security_question, reset_passwor
 import repos
 from export_utils import export_excel_bytes, export_pdf_bytes
 
-# -------------------- CONFIG --------------------
+# ================= CONFIG =================
 st.set_page_config(page_title="Controle Financeiro", page_icon="💳", layout="wide")
 init_db()
 
@@ -16,10 +16,10 @@ CATEGORIA_CARTAO = "Cartão de crédito"
 
 MESES = [
     "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
+    "Julho","Agosto","Agosto","Setembro","Outubro","Novembro","Dezembro"
 ]
 
-# -------------------- CSS --------------------
+# ================= CSS =================
 def inject_css():
     try:
         with open("style.css", "r", encoding="utf-8") as f:
@@ -29,7 +29,7 @@ def inject_css():
 
 inject_css()
 
-# -------------------- UI CONTROL (admin) --------------------
+# ================= UI CONTROL =================
 def hide_share_only():
     st.markdown(
         """
@@ -45,7 +45,7 @@ def hide_share_only():
 if st.session_state.get("username") != "carlos.martins":
     hide_share_only()
 
-# -------------------- SESSION --------------------
+# ================= SESSION =================
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
 if "username" not in st.session_state:
@@ -53,7 +53,7 @@ if "username" not in st.session_state:
 if "edit_id" not in st.session_state:
     st.session_state.edit_id = None
 
-# -------------------- HELPERS --------------------
+# ================= HELPERS =================
 def fmt(v):
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -63,7 +63,7 @@ def parse_date(d):
     except:
         return datetime.strptime(str(d), "%Y-%m-%d").date()
 
-# -------------------- AUTH --------------------
+# ================= AUTH =================
 def screen_auth():
     st.title("💳 Controle Financeiro")
 
@@ -86,12 +86,7 @@ def screen_auth():
         p = st.text_input("Nova senha", type="password")
         q = st.selectbox(
             "Pergunta de segurança",
-            [
-                "Nome do primeiro pet?",
-                "Nome da mãe?",
-                "Cidade onde nasceu?",
-                "Filme favorito?"
-            ]
+            ["Nome do primeiro pet?","Nome da mãe?","Cidade onde nasceu?","Filme favorito?"]
         )
         a = st.text_input("Resposta")
         if st.button("Criar conta", type="primary", use_container_width=True):
@@ -114,7 +109,7 @@ def screen_auth():
                 else:
                     st.error("Resposta incorreta")
 
-# -------------------- MAIN APP --------------------
+# ================= APP =================
 def screen_app():
     today = date.today()
 
@@ -132,17 +127,17 @@ def screen_app():
         if st.button("Sair"):
             st.session_state.user_id = None
             st.session_state.username = None
+            st.session_state.edit_id = None
             st.rerun()
 
-    # ================= PAGAMENTOS =================
     rows = repos.list_payments(st.session_state.user_id, mes, ano)
 
     df_raw = pd.DataFrame(
         rows,
-        columns=["id", "Descrição", "Valor", "Vencimento", "Pago", "Categoria"]
+        columns=["id","Descrição","Valor","Vencimento","Pago","Categoria"]
     )
 
-    # ---- Consolida cartão ----
+    # ---------- CONSOLIDA CARTÃO ----------
     df_cartao = df_raw[df_raw["Categoria"] == CATEGORIA_CARTAO]
     df_outros = df_raw[df_raw["Categoria"] != CATEGORIA_CARTAO]
 
@@ -161,7 +156,17 @@ def screen_app():
 
     st.title(f"{mes_nome}/{ano}")
 
-    # ================= PAGE: PAGAMENTOS =================
+    total = df_raw["Valor"].sum() if not df_raw.empty else 0
+    pago = df_raw[df_raw["Pago"] == 1]["Valor"].sum() if not df_raw.empty else 0
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total", fmt(total))
+    c2.metric("Pago", fmt(pago))
+    c3.metric("Em aberto", fmt(total - pago))
+
+    st.divider()
+
+    # ================= PAGAMENTOS =================
     if page == "🧾 Pagamentos":
         st.subheader("🧾 Pagamentos")
 
@@ -171,7 +176,7 @@ def screen_app():
 
         with st.expander("➕ Novo pagamento", expanded=True):
             d = st.text_input("Descrição")
-            v = st.number_input("Valor total", min_value=0.0)
+            v = st.number_input("Valor", min_value=0.0)
             c = st.selectbox("Categoria", cat_names)
             parcelado = st.checkbox("Parcelado?")
             parcelas = st.number_input("Qtd parcelas", min_value=1, value=1)
@@ -198,13 +203,10 @@ def screen_app():
                         ano,
                         cat_map[c]
                     )
-                st.success("Lançamento criado")
                 st.rerun()
 
-        st.divider()
-
         for _, row in df.iterrows():
-            a,b,c,d = st.columns([5,2,2,2])
+            a,b,c,d,e = st.columns([4,1.5,1.5,1.5,1.5])
             a.write(f"**{row['Descrição']}**")
             b.write(fmt(row["Valor"]))
             c.write("✅ Pago" if row["Pago"] else "🕓 Aberto")
@@ -218,32 +220,67 @@ def screen_app():
                             ano,
                             CATEGORIA_CARTAO
                         )
-                        st.success("Fatura paga")
                         st.rerun()
             else:
                 if not row["Pago"]:
-                    if d.button("Marcar pago", key=f"pay_{row['id']}"):
+                    if d.button("Pagar", key=f"pay_{row['id']}"):
                         repos.mark_paid(st.session_state.user_id, row["id"], True)
                         st.rerun()
 
-    # ================= PAGE: EXPORT =================
+                if e.button("Excluir", key=f"del_{row['id']}"):
+                    repos.delete_payment(st.session_state.user_id, row["id"])
+                    st.rerun()
+
+    # ================= CATEGORIAS =================
+    elif page == "🏷️ Categorias":
+        st.subheader("🏷️ Categorias")
+        new_cat = st.text_input("Nova categoria")
+        if st.button("Adicionar"):
+            repos.create_category(st.session_state.user_id, new_cat)
+            st.rerun()
+
+        cats = repos.list_categories(st.session_state.user_id)
+        for cid, name in cats:
+            a,b = st.columns([4,1])
+            a.write(name)
+            if b.button("Excluir", key=f"cat_{cid}"):
+                repos.delete_category(st.session_state.user_id, cid)
+                st.rerun()
+
+    # ================= PLANEJAMENTO =================
+    elif page == "💰 Planejamento":
+        budget = repos.get_budget(st.session_state.user_id, mes, ano)
+        renda = st.number_input("Renda do mês", value=float(budget["income"]))
+        meta = st.number_input("Meta de gastos", value=float(budget["expense_goal"]))
+
+        if st.button("Salvar planejamento", type="primary"):
+            repos.upsert_budget(st.session_state.user_id, mes, ano, renda, meta)
+            st.success("Planejamento salvo")
+
+        gasto = total
+        sobra = renda - gasto
+
+        st.metric("Gasto do mês", fmt(gasto))
+        st.metric("Sobra", fmt(sobra))
+
+    # ================= DASHBOARD =================
+    elif page == "📊 Dashboard" and not df_raw.empty:
+        fig = px.pie(df_raw, names="Categoria", values="Valor", title="Gastos por categoria")
+        st.plotly_chart(fig, use_container_width=True)
+
+    # ================= EXPORT =================
     elif page == "📤 Exportar":
-        df_exp = df.copy()
+        df_exp = df_raw.copy()
         df_exp["Pago"] = df_exp["Pago"].map({0:"Não",1:"Sim"})
         st.dataframe(df_exp, use_container_width=True)
 
         st.download_button(
-            "📊 Excel",
+            "📊 Exportar Excel",
             export_excel_bytes(df_exp),
             file_name="pagamentos.xlsx"
         )
 
-    # ================= PAGE: DASHBOARD =================
-    elif page == "📊 Dashboard" and not df.empty:
-        fig = px.pie(df, names="Categoria", values="Valor", title="Gastos por categoria")
-        st.plotly_chart(fig, use_container_width=True)
-
-# -------------------- ROUTER --------------------
+# ================= ROUTER =================
 if st.session_state.user_id is None:
     screen_auth()
 else:
