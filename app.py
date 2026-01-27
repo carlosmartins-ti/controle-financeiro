@@ -191,31 +191,6 @@ def screen_app():
 
     st.divider()
 
-    # ================= DASHBOARD =================
-    if page == "📊 Dashboard":
-        if df.empty:
-            st.info("Sem dados para este período.")
-        else:
-            fig = px.pie(df, names="Categoria", values="Valor", title="Gastos por categoria")
-            st.plotly_chart(fig, use_container_width=True)
-
-    # ================= PAGAMENTOS =================
-    elif page == "🧾 Pagamentos":
-        st.info("Aqui continuam todos os recursos de pagamentos exatamente como antes.")
-
-    # ================= CATEGORIAS =================
-    elif page == "🏷️ Categorias":
-        st.info("Tela de categorias preservada.")
-
-    # ================= PLANEJAMENTO =================
-    elif page == "💰 Planejamento":
-        st.info("Tela de planejamento preservada.")
-
-    # ================= EXPORTAR =================
-    elif page == "📤 Exportar":
-        st.info("Tela de exportação preservada.")
-
-
 # -------------------- Router --------------------
 if st.session_state.user_id is None:
     screen_auth()
