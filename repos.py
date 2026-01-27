@@ -8,41 +8,58 @@ def _now():
 # ==================================================
 # CATEGORIAS PADRÃO (CRIADAS AUTOMATICAMENTE)
 # ==================================================
-DEFAULT_CATEGORIES = [
-    "Aluguel",
-    "Condomínio",
-    "Água",
-    "Luz",
-    "Plano celular",
-    "Internet",
-    "Supermercado",
-    "Restaurante",
-    "Delivery / iFood",
-    "Refeição trabalho",
-    "TV / Streaming",
-    "Transporte",
-    "Cartão de crédito",
-    "Contas fixas",
-    "Lazer",
-    "Saúde",
-    "Educação",
-    "Poupança",
-    "Roupas",
-    "Calçados",
-    "Cosméticos",
-    "Farmácia",
-    "Academia",
-    "Barbeiro / Salão",
-    "Cinema",
-    "Viagem",
-    "Passeios",
-    "Jogos",
-    "Bares / festas",
-    "Faculdade",
-    "Móveis",
-    "Outros",
-    "Imprevistos"
-]
+def ensure_default_categories(user_id: int):
+    DEFAULT_CATEGORIES = [
+        "Aluguel",
+        "Condomínio",
+        "Água",
+        "Luz",
+        "Plano celular",
+        "Internet",
+        "Supermercado",
+        "Restaurante",
+        "Delivery / iFood",
+        "Refeição trabalho",
+        "TV / Streaming",
+        "Transporte",
+        "Cartão de crédito",
+        "Contas fixas",
+        "Lazer",
+        "Saúde",
+        "Educação",
+        "Poupança",
+        "Roupas",
+        "Calçados",
+        "Cosméticos",
+        "Farmácia",
+        "Academia",
+        "Barbeiro / Salão",
+        "Cinema",
+        "Viagem",
+        "Passeios",
+        "Jogos",
+        "Bares / festas",
+        "Faculdade",
+        "Móveis",
+        "Outros",
+        "Imprevistos",
+    ]
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    for name in DEFAULT_CATEGORIES:
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO categories (user_id, name, created_at)
+            VALUES (?, ?, ?)
+            """,
+            (user_id, name, _now())
+        )
+
+    conn.commit()
+    conn.close()
+
 
 # ==================================================
 # GARANTE CATEGORIAS PADRÃO
