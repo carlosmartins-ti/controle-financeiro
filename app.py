@@ -65,7 +65,7 @@ for k in ["user_id", "username"]:
 def screen_auth():
     st.title("💳 Controle Financeiro")
 
-  st.markdown(
+st.markdown(
     """
     <div class="auth-box">
         🔐 <b>Autenticação e autoria do projeto</b><br>
