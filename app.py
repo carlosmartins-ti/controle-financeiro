@@ -157,8 +157,8 @@ def screen_app():
             st.session_state.username = None
             st.rerun()
 
-    if hasattr(repos, "seed_default_categories"):
-        repos.seed_default_categories(st.session_state.user_id)
+    if st.session_state.user_id is not None:
+    repos.seed_default_categories(st.session_state.user_id)
 
     rows = repos.list_payments(st.session_state.user_id, month, year)
 
