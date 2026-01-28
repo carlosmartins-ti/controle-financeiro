@@ -141,14 +141,13 @@ def screen_auth():
 
 # ================= APP =================
 def screen_app():
-
-    # 🔐 proteção básica
     if not st.session_state.user_id:
         st.error("Usuário não autenticado.")
         return
 
-    # 🔥 garante categorias sempre
+    # ✅ garante categorias sempre
     repos.seed_default_categories(st.session_state.user_id)
+
 
     with st.sidebar:
         st.markdown(f"**Usuário:** `{st.session_state.username}`")
