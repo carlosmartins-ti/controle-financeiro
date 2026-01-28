@@ -206,7 +206,7 @@ def screen_app():
 
     # ================= DESPESAS =================
 if page == "🧾 Despesas":
-    st.subheader("🧾 Despesas")
+        st.subheader("🧾 Despesas")
 
     # Categorias
     cats = repos.list_categories(st.session_state.user_id)
