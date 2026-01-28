@@ -100,23 +100,37 @@ def screen_auth():
                 st.error("Usuário ou senha inválidos.")
 
     with t2:
-        u = st.text_input("Novo usuário", key="signup_user")
-        p = st.text_input("Nova senha", type="password", key="signup_pass")
-        q = st.selectbox(
-            "Pergunta de segurança",
-            [
-                "Qual o nome do seu primeiro pet?",
-                "Qual o nome da sua mãe?",
-                "Qual sua cidade de nascimento?",
-                "Qual seu filme favorito?"
-            ],
-            key="signup_q"
-        )
-        a = st.text_input("Resposta", key="signup_a")
+    u = st.text_input("Novo usuário", key="signup_user")
+    p = st.text_input("Nova senha", type="password", key="signup_pass")
+    q = st.selectbox(
+        "Pergunta de segurança",
+        [
+            "Qual o nome do seu primeiro pet?",
+            "Qual o nome da sua mãe?",
+            "Qual sua cidade de nascimento?",
+            "Qual seu filme favorito?"
+        ],
+        key="signup_q"
+    )
+    a = st.text_input("Resposta", key="signup_a")
 
-        if st.button("Criar conta", key="btn_signup"):
+    if st.button("Criar conta", key="btn_signup"):
+        try:
             create_user(u, p, q, a)
-            st.success("Conta criada! Faça login.")
+
+            # 🔥 login automático após cadastro
+            uid = authenticate(u, p)
+            st.session_state.user_id = uid
+            st.session_state.username = u.strip().lower()
+
+            # 🔥 cria categorias padrão
+            repos.seed_default_categories(uid)
+
+            st.success("Conta criada com sucesso.")
+            st.rerun()
+
+        except ValueError as e:
+            st.error(str(e))
 
     with t3:
         u = st.text_input("Usuário", key="reset_user")
