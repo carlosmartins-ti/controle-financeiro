@@ -147,41 +147,44 @@ def screen_app():
         st.error("Usuário não autenticado.")
         return
 
+    # garante categorias
     repos.seed_default_categories(st.session_state.user_id)
 
+    # ---------- SIDEBAR ----------
     with st.sidebar:
         st.markdown(f"**Usuário:** `{st.session_state.username}`")
         if is_admin():
             st.caption("🔑 Administrador")
 
-
         today = date.today()
-        month_label = st.selectbox("Mês", MESES, index=today.month-1, key="sel_month")
-        year = st.selectbox("Ano", list(range(today.year-2, today.year+3)), index=2, key="sel_year")
+        month_label = st.selectbox("Mês", MESES, index=today.month - 1)
+        year = st.selectbox(
+            "Ano",
+            list(range(today.year - 2, today.year + 3)),
+            index=2
+        )
         month = MESES.index(month_label) + 1
 
         st.divider()
         page = st.radio(
             "Menu",
-            ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"],
-            key="menu"
+            ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"]
         )
 
-        if st.button("Sair", key="btn_logout", use_container_width=True):
+        if st.button("Sair", use_container_width=True):
             st.session_state.user_id = None
             st.session_state.username = None
             st.rerun()
 
-    if st.session_state.user_id is not None:
-     repos.seed_default_categories(st.session_state.user_id)
-
+    # ---------- DADOS ----------
     rows = repos.list_payments(st.session_state.user_id, month, year)
 
     df = pd.DataFrame(
         rows,
         columns=[
-            "id","Descrição","Valor","Vencimento","Pago","Data pagamento",
-            "CategoriaID","Categoria","is_credit","installments","installment_index","credit_group"
+            "id", "Descrição", "Valor", "Vencimento", "Pago", "Data pagamento",
+            "CategoriaID", "Categoria", "is_credit",
+            "installments", "installment_index", "credit_group"
         ]
     )
 
@@ -193,10 +196,11 @@ def screen_app():
     renda = float(budget["income"])
     saldo = renda - total
 
+    # ---------- HEADER ----------
     st.title("💳 Controle Financeiro")
     st.caption(f"Período: **{month_label}/{year}**")
 
-    c1,c2,c3,c4 = st.columns(4)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total do mês", fmt_brl(total))
     c2.metric("Pago", fmt_brl(pago))
     c3.metric("Em aberto", fmt_brl(aberto))
@@ -204,117 +208,125 @@ def screen_app():
 
     st.divider()
 
-# ================= DESPESAS =================
-if page == "🧾 Despesas":
-    st.subheader("🧾 Despesas")
+    # ================= DESPESAS =================
+    if page == "🧾 Despesas":
+        st.subheader("🧾 Despesas")
 
-    cats = repos.list_categories(st.session_state.user_id)
-    cat_map = {name: cid for cid, name in cats}
-    cat_names = ["(Sem categoria)"] + list(cat_map.keys())
+        cats = repos.list_categories(st.session_state.user_id)
+        cat_map = {name: cid for cid, name in cats}
+        cat_names = ["(Sem categoria)"] + list(cat_map.keys())
 
-    with st.expander("➕ Adicionar despesa", expanded=True):
-        a1, a2, a3, a4, a5 = st.columns([3, 1, 1.3, 2, 1])
+        # ---------- ADICIONAR ----------
+        with st.expander("➕ Adicionar despesa", expanded=True):
+            a1, a2, a3, a4, a5 = st.columns([3, 1, 1.3, 2, 1])
 
-        desc = a1.text_input("Descrição", key="add_desc")
-        val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0, key="add_val")
-        venc = a3.date_input(
-            "Vencimento",
-            value=date.today(),
-            format="DD/MM/YYYY",
-            key="add_venc"
-        )
-        cat_name = a4.selectbox("Categoria", cat_names, key="add_cat")
-        parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1, key="add_parc")
+            desc = a1.text_input("Descrição", key="add_desc")
+            val = a2.number_input(
+                "Valor (R$)", min_value=0.0, step=10.0, key="add_val"
+            )
+            venc = a3.date_input(
+                "Vencimento",
+                value=date.today(),
+                format="DD/MM/YYYY",
+                key="add_venc"
+            )
+            cat_name = a4.selectbox("Categoria", cat_names, key="add_cat")
+            parcelas = a5.number_input(
+                "Parcelas", min_value=1, step=1, value=1, key="add_parc"
+            )
 
-        if st.button("Adicionar", type="primary", key="btn_add"):
-            if not desc or val <= 0:
-                st.error("Preencha a descrição e um valor válido.")
-            else:
-                cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
+            if st.button("Adicionar", type="primary"):
+                if not desc or val <= 0:
+                    st.error("Preencha a descrição e um valor válido.")
+                else:
+                    cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
 
-                repos.add_payment(
-                    st.session_state.user_id,
-                    desc,
-                    val,
-                    str(venc),
-                    month,
-                    year,
-                    cid,
-                    is_credit=1 if parcelas > 1 else 0,
-                    installments=parcelas
-                )
+                    repos.add_payment(
+                        st.session_state.user_id,
+                        desc,
+                        val,
+                        str(venc),
+                        month,
+                        year,
+                        cid,
+                        is_credit=1 if parcelas > 1 else 0,
+                        installments=parcelas
+                    )
 
-                # ✅ LIMPA OS CAMPOS
-                st.session_state["add_desc"] = ""
-                st.session_state["add_val"] = 0.0
-                st.session_state["add_venc"] = date.today()
-                st.session_state["add_cat"] = "(Sem categoria)"
-                st.session_state["add_parc"] = 1
+                    # ✅ LIMPA OS CAMPOS
+                    st.session_state["add_desc"] = ""
+                    st.session_state["add_val"] = 0.0
+                    st.session_state["add_venc"] = date.today()
+                    st.session_state["add_cat"] = "(Sem categoria)"
+                    st.session_state["add_parc"] = 1
 
-                st.rerun()
-
-    st.divider()
-
-    if df.empty:
-        st.info("Nenhuma despesa cadastrada neste período.")
-    else:
-        for r in rows:
-            pid, desc, amount, due, paid, _, _, cat_name, *_ = r
-            a,b,c,d,e,f = st.columns([4,1.2,1.8,1.2,1.2,1])
-
-            a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
-            b.write(fmt_brl(amount))
-            c.write(format_date_br(due))
-            d.write("✅ Paga" if paid else "🕓 Em aberto")
-
-            if not paid:
-                if e.button("Marcar como paga", key=f"pay_{pid}"):
-                    repos.mark_paid(st.session_state.user_id, pid, True)
-                    st.rerun()
-            else:
-                if e.button("Desfazer", key=f"unpay_{pid}"):
-                    repos.mark_paid(st.session_state.user_id, pid, False)
                     st.rerun()
 
-            if f.button("Excluir", key=f"del_{pid}"):
-                repos.delete_payment(st.session_state.user_id, pid)
-                st.rerun()
+        st.divider()
 
+        # ---------- LISTAGEM ----------
+        if df.empty:
+            st.info("Nenhuma despesa cadastrada neste período.")
+        else:
+            for r in rows:
+                pid, desc, amount, due, paid, _, _, cat_name, *_ = r
+                a, b, c, d, e, f = st.columns([4, 1.2, 1.8, 1.2, 1.2, 1])
 
-# ================= DASHBOARD =================
-elif page == "📊 Dashboard":
-    st.subheader("📊 Dashboard")
-    if not df.empty:
-        df2 = df.copy()
-        df2["Categoria"] = df2["Categoria"].fillna("Sem categoria")
-        fig = px.pie(df2, names="Categoria", values="Valor")
-        st.plotly_chart(fig, use_container_width=True)
+                a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
+                b.write(fmt_brl(amount))
+                c.write(format_date_br(due))
+                d.write("✅ Paga" if paid else "🕓 Em aberto")
 
+                if not paid:
+                    if e.button("Marcar como paga", key=f"pay_{pid}"):
+                        repos.mark_paid(st.session_state.user_id, pid, True)
+                        st.rerun()
+                else:
+                    if e.button("Desfazer", key=f"unpay_{pid}"):
+                        repos.mark_paid(st.session_state.user_id, pid, False)
+                        st.rerun()
 
-# ================= CATEGORIAS =================
-elif page == "🏷️ Categorias":
-    st.subheader("🏷️ Categorias")
-    new_cat = st.text_input("Nova categoria", key="new_cat")
-    if st.button("Adicionar", key="btn_add_cat"):
-        repos.create_category(st.session_state.user_id, new_cat)
-        st.rerun()
+                if f.button("Excluir", key=f"del_{pid}"):
+                    repos.delete_payment(st.session_state.user_id, pid)
+                    st.rerun()
 
-    for cid, name in repos.list_categories(st.session_state.user_id):
-        a,b = st.columns([4,1])
-        a.write(name)
-        if b.button("Excluir", key=f"cat_{cid}"):
-            repos.delete_category(st.session_state.user_id, cid)
+    # ================= DASHBOARD =================
+    elif page == "📊 Dashboard":
+        st.subheader("📊 Dashboard")
+        if not df.empty:
+            df2 = df.copy()
+            df2["Categoria"] = df2["Categoria"].fillna("Sem categoria")
+            fig = px.pie(df2, names="Categoria", values="Valor")
+            st.plotly_chart(fig, use_container_width=True)
+
+    # ================= CATEGORIAS =================
+    elif page == "🏷️ Categorias":
+        st.subheader("🏷️ Categorias")
+        new_cat = st.text_input("Nova categoria")
+        if st.button("Adicionar"):
+            repos.create_category(st.session_state.user_id, new_cat)
             st.rerun()
 
+        for cid, name in repos.list_categories(st.session_state.user_id):
+            a, b = st.columns([4, 1])
+            a.write(name)
+            if b.button("Excluir", key=f"cat_{cid}"):
+                repos.delete_category(st.session_state.user_id, cid)
+                st.rerun()
 
-# ================= PLANEJAMENTO =================
-elif page == "💰 Planejamento":
-    st.subheader("💰 Planejamento")
-    renda_v = st.number_input("Renda", value=float(renda), key="renda")
-    meta_v = st.number_input("Meta de gastos", value=float(budget["expense_goal"]), key="meta")
-    if st.button("Salvar", key="btn_save_plan"):
-        repos.upsert_budget(st.session_state.user_id, month, year, renda_v, meta_v)
-        st.success("Planejamento salvo.")
+    # ================= PLANEJAMENTO =================
+    elif page == "💰 Planejamento":
+        st.subheader("💰 Planejamento")
+        renda_v = st.number_input("Renda", value=float(renda))
+        meta_v = st.number_input(
+            "Meta de gastos", value=float(budget["expense_goal"])
+        )
+        if st.button("Salvar"):
+            repos.upsert_budget(
+                st.session_state.user_id, month, year, renda_v, meta_v
+            )
+            st.success("Planejamento salvo.")
+
 
 # ================= ROUTER =================
 if st.session_state.user_id is None:
