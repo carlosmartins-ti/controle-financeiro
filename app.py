@@ -198,7 +198,6 @@ def screen_app():
     value=date.today(),
     format="DD/MM/YYYY"
 )
-            a3.caption(f"📅 {venc.strftime('%d/%m/%Y')}")
             cat_name = a4.selectbox("Categoria", cat_names, key="add_cat")
             parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1, key="add_parc")
 
