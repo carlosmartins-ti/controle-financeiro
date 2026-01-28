@@ -74,27 +74,30 @@ def screen_auth():
         unsafe_allow_html=True
     )
 
-    t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
+   # 👉 PRIMEIRO cria os tabs
+    t1, t2, t3 = st.tabs([
+        "Entrar",
+        "Criar conta",
+        "Recuperar senha"
+    ])
 
-    # ---------- LOGIN ----------
-with t1:
-    u = st.text_input("Usuário", key="login_user")
-    p = st.text_input("Senha", type="password", key="login_pass")
+    # 👉 DEPOIS usa
+    with t1:
+        u = st.text_input("Usuário", key="login_user")
+        p = st.text_input("Senha", type="password", key="login_pass")
 
-    if st.button("Entrar", key="btn_login"):
-        uid = authenticate(u, p)
+        if st.button("Entrar", key="btn_login"):
+            uid = authenticate(u, p)
+            if uid:
+                st.session_state.user_id = uid
+                st.session_state.username = u.strip().lower()
 
-        if uid:
-            st.session_state.user_id = uid
-            st.session_state.username = u.strip().lower()
+                # categorias padrão (novos e antigos)
+                repos.ensure_default_categories(uid)
 
-            # 🔥 GARANTE categorias padrão (novos e antigos)
-            repos.ensure_default_categories(uid)
-
-            st.rerun()
-        else:
-            st.error("Usuário ou senha inválidos.")
-
+                st.rerun()
+            else:
+                st.error("Usuário ou senha inválidos.")
 
     with t2:
         u = st.text_input("Novo usuário", key="signup_user")
@@ -105,16 +108,30 @@ with t1:
                 "Qual o nome do seu primeiro pet?",
                 "Qual o nome da sua mãe?",
                 "Qual sua cidade de nascimento?",
-                "Qual seu filme favorito?",
+                "Qual seu filme favorito?"
             ],
             key="signup_q"
         )
         a = st.text_input("Resposta", key="signup_a")
 
-        if st.button("Criar conta", type="primary", key="btn_signup", use_container_width=True):
-            u = (u or "").strip().lower()
+        if st.button("Criar conta", key="btn_signup"):
             create_user(u, p, q, a)
             st.success("Conta criada! Faça login.")
+
+    with t3:
+        u = st.text_input("Usuário", key="reset_user")
+        q = get_security_question(u) if u else None
+
+        if q:
+            st.info(q)
+            a = st.text_input("Resposta", key="reset_a")
+            np = st.text_input("Nova senha", type="password", key="reset_np")
+
+            if st.button("Redefinir senha", key="btn_reset"):
+                if reset_password(u, a, np):
+                    st.success("Senha alterada!")
+                else:
+                    st.error("Resposta incorreta.")
 
     with t3:
         u = st.text_input("Usuário", key="reset_user")
