@@ -7,7 +7,7 @@ from database import init_db
 from auth import authenticate, create_user, get_security_question, reset_password
 import repos
 
-# -------------------- Setup --------------------
+# ================= SETUP =================
 st.set_page_config(page_title="Controle Financeiro", page_icon="💳", layout="wide")
 init_db()
 
@@ -18,6 +18,7 @@ MESES = [
     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
 ]
 
+# ================= UTILS =================
 def fmt_brl(v):
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -46,12 +47,12 @@ def status_vencimento(due_date, paid):
 def is_admin():
     return st.session_state.username == ADMIN_USERNAME
 
-# -------------------- Session --------------------
+# ================= SESSION =================
 for k in ["user_id", "username"]:
     if k not in st.session_state:
         st.session_state[k] = None
 
-# -------------------- AUTH --------------------
+# ================= AUTH =================
 def screen_auth():
     st.title("💳 Controle Financeiro")
 
@@ -67,7 +68,6 @@ def screen_auth():
         ">
         🔐 <b>Autenticação e autoria do projeto</b><br>
         Aplicação desenvolvida por <b>Carlos Martins</b>.<br>
-        Para dúvidas ou suporte:<br>
         📧 <a href="mailto:cr954479@gmail.com">cr954479@gmail.com</a>
         </div>
         """,
@@ -76,7 +76,6 @@ def screen_auth():
 
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
-    # -------- Entrar --------
     with t1:
         u = st.text_input("Usuário", key="login_user")
         p = st.text_input("Senha", type="password", key="login_pass")
@@ -92,7 +91,6 @@ def screen_auth():
             else:
                 st.error("Usuário ou senha inválidos.")
 
-    # -------- Criar conta --------
     with t2:
         u = st.text_input("Novo usuário", key="signup_user")
         p = st.text_input("Nova senha", type="password", key="signup_pass")
@@ -113,7 +111,6 @@ def screen_auth():
             create_user(u, p, q, a)
             st.success("Conta criada! Faça login.")
 
-    # -------- Recuperar senha --------
     with t3:
         u = st.text_input("Usuário", key="reset_user")
         u_norm = (u or "").strip().lower()
@@ -128,7 +125,7 @@ def screen_auth():
                 else:
                     st.error("Resposta incorreta.")
 
-# -------------------- APP --------------------
+# ================= APP =================
 def screen_app():
     with st.sidebar:
         st.markdown(f"**Usuário:** `{st.session_state.username}`")
@@ -136,8 +133,8 @@ def screen_app():
             st.caption("🔑 Administrador")
 
         today = date.today()
-        month_label = st.selectbox("Mês", MESES, index=today.month - 1, key="sel_month")
-        year = st.selectbox("Ano", list(range(today.year - 2, today.year + 3)), index=2, key="sel_year")
+        month_label = st.selectbox("Mês", MESES, index=today.month-1, key="sel_month")
+        year = st.selectbox("Ano", list(range(today.year-2, today.year+3)), index=2, key="sel_year")
         month = MESES.index(month_label) + 1
 
         st.divider()
@@ -176,7 +173,7 @@ def screen_app():
     st.title("💳 Controle Financeiro")
     st.caption(f"Período: **{month_label}/{year}**")
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1,c2,c3,c4 = st.columns(4)
     c1.metric("Total do mês", fmt_brl(total))
     c2.metric("Pago", fmt_brl(pago))
     c3.metric("Em aberto", fmt_brl(aberto))
@@ -193,7 +190,7 @@ def screen_app():
         cat_names = ["(Sem categoria)"] + list(cat_map.keys())
 
         with st.expander("➕ Adicionar despesa", expanded=True):
-            a1, a2, a3, a4, a5 = st.columns([3,1,1.3,2,1])
+            a1,a2,a3,a4,a5 = st.columns([3,1,1.3,2,1])
             desc = a1.text_input("Descrição", key="add_desc")
             val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0, key="add_val")
             venc = a3.date_input("Vencimento", key="add_due")
@@ -216,11 +213,31 @@ def screen_app():
                 )
                 st.rerun()
 
+        # -------- FATURA DO CARTÃO --------
+        credit_rows = [r for r in rows if r[7] and "cart" in r[7].lower()]
+        if credit_rows:
+            open_credit = [r for r in credit_rows if r[4] == 0]
+            total_fatura = sum(float(r[2]) for r in open_credit)
+
+            st.divider()
+            st.subheader("💳 Fatura do cartão")
+            c1,c2 = st.columns([3,1])
+            c1.metric("Total em aberto", fmt_brl(total_fatura))
+
+            if open_credit:
+                if c2.button("💰 Pagar fatura do cartão", key="pay_card"):
+                    repos.mark_credit_invoice_paid(st.session_state.user_id, month, year)
+                    st.rerun()
+            else:
+                if c2.button("🔄 Desfazer pagamento da fatura", key="unpay_card"):
+                    repos.unmark_credit_invoice_paid(st.session_state.user_id, month, year)
+                    st.rerun()
+
         st.divider()
 
         for r in rows:
             pid, desc, amount, due, paid, _, _, cat_name, *_ = r
-            a, b, c, d, e, f = st.columns([4,1.2,1.8,1.2,1.2,1])
+            a,b,c,d,e,f = st.columns([4,1.2,1.8,1.2,1.2,1])
 
             a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
             b.write(fmt_brl(amount))
@@ -267,7 +284,7 @@ def screen_app():
             st.rerun()
 
         for cid, name in repos.list_categories(st.session_state.user_id):
-            a, b = st.columns([4,1])
+            a,b = st.columns([4,1])
             a.write(name)
             if b.button("Excluir", key=f"cat_{cid}"):
                 repos.delete_category(st.session_state.user_id, cid)
@@ -282,7 +299,7 @@ def screen_app():
             repos.upsert_budget(st.session_state.user_id, month, year, renda_v, meta_v)
             st.success("Planejamento salvo.")
 
-# -------------------- ROUTER --------------------
+# ================= ROUTER =================
 if st.session_state.user_id is None:
     screen_auth()
 else:
