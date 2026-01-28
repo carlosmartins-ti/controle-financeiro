@@ -85,17 +85,9 @@ footer {
     visibility: hidden;
 }
 
-/* ===== HIDE STREAMLIT FLOATING BUTTONS (BOTTOM RIGHT) ===== */
-div[data-testid="stToolbar"],
-div[data-testid="stDecoration"],
-div[data-testid="stStatusWidget"],
-div[data-testid="stChatInput"],
-div[data-testid="stAppToolbar"],
-div[data-testid="stBottom"],
-div[data-testid="stFloatingActionButton"],
-div[class*="floating"],
-button[title="Open GitHub"],
-button[title="Fork this app"] {
+/* remove qualquer botão fixo no canto */
+div[style*="position: fixed"] {
     display: none !important;
 }
+
 
