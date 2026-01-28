@@ -8,7 +8,16 @@ from auth import authenticate, create_user, get_security_question, reset_passwor
 import repos
 
 # ================= SETUP =================
-st.set_page_config(page_title="Controle Financeiro", page_icon="💳", layout="wide")
+st.set_page_config(
+    page_title="Controle Financeiro",
+    page_icon="💳",
+    layout="wide"
+)
+
+# 🔥 CSS (OBRIGATÓRIO PARA MOBILE)
+with open("style.css", "r", encoding="utf-8") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
 init_db()
 
 ADMIN_USERNAME = "carlos.martins"
