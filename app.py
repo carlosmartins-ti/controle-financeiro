@@ -149,22 +149,28 @@ def screen_app():
 
     repos.seed_default_categories(st.session_state.user_id)
 
+    # ---------- SIDEBAR (DESKTOP) ----------
     with st.sidebar:
         st.markdown(f"**Usuário:** `{st.session_state.username}`")
         if is_admin():
             st.caption("🔑 Administrador")
 
-
         today = date.today()
-        month_label = st.selectbox("Mês", MESES, index=today.month-1, key="sel_month")
-        year = st.selectbox("Ano", list(range(today.year-2, today.year+3)), index=2, key="sel_year")
+        month_label = st.selectbox("Mês", MESES, index=today.month - 1, key="sel_month")
+        year = st.selectbox(
+            "Ano",
+            list(range(today.year - 2, today.year + 3)),
+            index=2,
+            key="sel_year",
+        )
         month = MESES.index(month_label) + 1
 
         st.divider()
-        page = st.radio(
+
+        page_sidebar = st.radio(
             "Menu",
             ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"],
-            key="menu"
+            key="menu_sidebar",
         )
 
         if st.button("Sair", key="btn_logout", use_container_width=True):
@@ -172,17 +178,61 @@ def screen_app():
             st.session_state.username = None
             st.rerun()
 
-    if st.session_state.user_id is not None:
-     repos.seed_default_categories(st.session_state.user_id)
+    # ---------- CSS MOBILE ----------
+    st.markdown(
+        """
+        <style>
+        @media (max-width: 768px) {
+            .mobile-menu {
+                display: block;
+                margin-bottom: 1rem;
+            }
+        }
+        @media (min-width: 769px) {
+            .mobile-menu {
+                display: none;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
+    # ---------- MENU MOBILE ----------
+    with st.container():
+        st.markdown('<div class="mobile-menu">', unsafe_allow_html=True)
+
+        page_mobile = st.radio(
+            "Menu",
+            ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"],
+            horizontal=True,
+            key="menu_mobile",
+        )
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ---------- MENU FINAL (decisão automática) ----------
+    page = page_mobile if st.session_state.get("menu_mobile") else page_sidebar
+
+    # ---------- RESTO DO APP ----------
     rows = repos.list_payments(st.session_state.user_id, month, year)
 
     df = pd.DataFrame(
         rows,
         columns=[
-            "id","Descrição","Valor","Vencimento","Pago","Data pagamento",
-            "CategoriaID","Categoria","is_credit","installments","installment_index","credit_group"
-        ]
+            "id",
+            "Descrição",
+            "Valor",
+            "Vencimento",
+            "Pago",
+            "Data pagamento",
+            "CategoriaID",
+            "Categoria",
+            "is_credit",
+            "installments",
+            "installment_index",
+            "credit_group",
+        ],
     )
 
     total = df["Valor"].sum() if not df.empty else 0
