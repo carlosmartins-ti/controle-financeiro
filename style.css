@@ -85,9 +85,5 @@ footer {
     visibility: hidden;
 }
 
-/* remove qualquer botão fixo no canto */
-div[style*="position: fixed"] {
-    display: none !important;
-}
 
 
