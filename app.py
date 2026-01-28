@@ -83,11 +83,14 @@ def screen_auth():
             u = (u or "").strip().lower()
             uid = authenticate(u, p)
             if uid:
-                st.session_state.user_id = uid
-                st.session_state.username = u
-                if hasattr(repos, "seed_default_categories"):
-                    repos.seed_default_categories(uid)
-                st.rerun()
+    st.session_state.user_id = uid
+    st.session_state.username = u.strip().lower()
+
+    # 🔥 GARANTE categorias padrão para TODOS
+    repos.ensure_default_categories(uid)
+
+    st.rerun()
+    
             else:
                 st.error("Usuário ou senha inválidos.")
 
