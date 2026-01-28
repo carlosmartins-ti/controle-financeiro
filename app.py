@@ -316,7 +316,6 @@ elif page == "💰 Planejamento":
         repos.upsert_budget(st.session_state.user_id, month, year, renda_v, meta_v)
         st.success("Planejamento salvo.")
 
-
 # ================= ROUTER =================
 if st.session_state.user_id is None:
     screen_auth()
