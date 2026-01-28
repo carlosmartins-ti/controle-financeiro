@@ -100,9 +100,9 @@ def screen_auth():
                 st.error("Usuário ou senha inválidos.")
 
     with t2:
-    u = st.text_input("Novo usuário", key="signup_user")
-    p = st.text_input("Nova senha", type="password", key="signup_pass")
-    q = st.selectbox(
+     u = st.text_input("Novo usuário", key="signup_user")
+     p = st.text_input("Nova senha", type="password", key="signup_pass")
+     q = st.selectbox(
         "Pergunta de segurança",
         [
             "Qual o nome do seu primeiro pet?",
@@ -129,8 +129,6 @@ def screen_auth():
 
         except ValueError as e:
             st.error(str(e))
-
-
 
     with t3:
         u = st.text_input("Usuário", key="reset_user")
