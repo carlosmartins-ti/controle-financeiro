@@ -65,23 +65,16 @@ for k in ["user_id", "username"]:
 def screen_auth():
     st.title("💳 Controle Financeiro")
 
-    st.markdown(
-        """
-        <div style="
-            padding:12px;
-            border-radius:8px;
-            background-color:#f0f2f6;
-            border-left:5px solid #4f8bf9;
-            margin-bottom:16px;
-            font-size:14px;
-        ">
+  st.markdown(
+    """
+    <div class="auth-box">
         🔐 <b>Autenticação e autoria do projeto</b><br>
         Aplicação desenvolvida por <b>Carlos Martins</b>.<br>
         📧 <a href="mailto:cr954479@gmail.com">cr954479@gmail.com</a>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
