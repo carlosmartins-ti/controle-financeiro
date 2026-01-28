@@ -118,12 +118,10 @@ def screen_auth():
         try:
             create_user(u, p, q, a)
 
-            # 🔥 login automático após cadastro
             uid = authenticate(u, p)
             st.session_state.user_id = uid
             st.session_state.username = u.strip().lower()
 
-            # 🔥 cria categorias padrão
             repos.seed_default_categories(uid)
 
             st.success("Conta criada com sucesso.")
@@ -131,6 +129,8 @@ def screen_auth():
 
         except ValueError as e:
             st.error(str(e))
+
+
 
     with t3:
         u = st.text_input("Usuário", key="reset_user")
