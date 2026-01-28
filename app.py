@@ -212,8 +212,8 @@ def screen_app():
         cat_map = {name: cid for cid, name in cats}
         cat_names = ["(Sem categoria)"] + list(cat_map.keys())
 
-    with st.expander("➕ Adicionar despesa", expanded=True):
-       with st.form("form_add_despesa", clear_on_submit=True):
+with st.expander("➕ Adicionar despesa", expanded=True):
+    with st.form("form_add_despesa", clear_on_submit=True):
         a1, a2, a3, a4, a5 = st.columns([3,1,1.3,2,1])
 
         desc = a1.text_input("Descrição")
@@ -228,6 +228,7 @@ def screen_app():
 
         submitted = st.form_submit_button("Adicionar")
 
+    # 👇 FORA do form
     if submitted:
         if not desc or val <= 0:
             st.error("Preencha a descrição e um valor válido.")
