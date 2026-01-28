@@ -145,9 +145,7 @@ def screen_app():
         st.error("Usuário não autenticado.")
         return
 
-    # ✅ garante categorias sempre
     repos.seed_default_categories(st.session_state.user_id)
-
 
     with st.sidebar:
         st.markdown(f"**Usuário:** `{st.session_state.username}`")
