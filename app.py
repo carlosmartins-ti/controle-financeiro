@@ -170,7 +170,7 @@ def screen_app():
             st.rerun()
 
     if st.session_state.user_id is not None:
-    repos.seed_default_categories(st.session_state.user_id)
+     repos.seed_default_categories(st.session_state.user_id)
 
     rows = repos.list_payments(st.session_state.user_id, month, year)
 
