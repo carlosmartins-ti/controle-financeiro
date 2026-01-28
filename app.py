@@ -13,6 +13,34 @@ st.set_page_config(
     page_icon="💳",
     layout="wide"
 )
+def hide_streamlit_ui():
+    st.markdown(
+        """
+        <style>
+        /* Esconde botões flutuantes do Streamlit Cloud */
+        div[data-testid="stToolbar"] {
+            display: none !important;
+        }
+
+        /* Esconde menu superior (Fork, GitHub, etc) */
+        header {
+            display: none !important;
+        }
+
+        /* Corrige espaço deixado pelo header */
+        section[data-testid="stSidebar"] > div:first-child {
+            margin-top: 0 !important;
+        }
+
+        /* Mantém a seta da sidebar funcionando */
+        button[aria-label="Collapse sidebar"],
+        button[aria-label="Expand sidebar"] {
+            display: inline-flex !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # 🔥 CSS (OBRIGATÓRIO PARA MOBILE)
 with open("style.css", "r", encoding="utf-8") as f:
