@@ -213,27 +213,23 @@ if page == "🧾 Despesas":
     cat_map = {name: cid for cid, name in cats}
     cat_names = ["(Sem categoria)"] + list(cat_map.keys())
 
-    # ---------- FORMULÁRIO ----------
+    # ---------- ADICIONAR DESPESA ----------
     with st.expander("➕ Adicionar despesa", expanded=True):
         with st.form("form_add_despesa", clear_on_submit=True):
-
             a1, a2, a3, a4, a5 = st.columns([3, 1, 1.3, 2, 1])
 
             desc = a1.text_input("Descrição")
             val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0)
-
             venc = a3.date_input(
                 "Vencimento",
                 value=date.today(),
                 format="DD/MM/YYYY"
             )
-
             cat_name = a4.selectbox("Categoria", cat_names)
             parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1)
 
             submitted = st.form_submit_button("Adicionar")
 
-        # ---------- PROCESSAMENTO ----------
         if submitted:
             if not desc or val <= 0:
                 st.error("Preencha a descrição e um valor válido.")
@@ -255,6 +251,24 @@ if page == "🧾 Despesas":
                 st.success("Despesa adicionada com sucesso!")
                 st.rerun()
 
+    st.divider()
+
+    # ---------- LISTAGEM ----------
+    if df.empty:
+        st.info("Nenhuma despesa cadastrada neste período.")
+    else:
+        for r in rows:
+            pid, desc, val, venc, paid, paid_date, cid, cname, *_ = r
+
+            c1, c2, c3, c4 = st.columns([4, 2, 2, 1])
+
+            c1.write(f"**{desc}**")
+            c2.write(fmt_brl(val))
+            c3.write("✅ Pago" if paid else "⏳ Em aberto")
+
+            if c4.button("🗑️", key=f"del_{pid}"):
+                repos.delete_payment(st.session_state.user_id, pid)
+                st.rerun()
 
         # -------- FATURA DO CARTÃO --------
         credit_rows = [r for r in rows if r[7] and "cart" in r[7].lower()]
