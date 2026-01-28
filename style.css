@@ -9,3 +9,46 @@
     background: rgba(255,255,255,0.03);
 }
 .muted { opacity: 0.75; }
+/* ===================== MOBILE FIX ===================== */
+@media (max-width: 768px) {
+
+  /* container principal */
+  .block-container {
+    padding: 1rem 1rem 2rem 1rem !important;
+  }
+
+  /* título principal */
+  h1 {
+    font-size: 1.6rem !important;
+    line-height: 1.2 !important;
+    text-align: left !important;
+  }
+
+  /* subtítulo / caption */
+  .stCaption {
+    font-size: 0.9rem !important;
+  }
+
+  /* card de autenticação */
+  .auth-box {
+    padding: 12px !important;
+  }
+
+  /* inputs */
+  input, textarea {
+    font-size: 0.95rem !important;
+  }
+
+  /* botões */
+  button {
+    width: 100% !important;
+    font-size: 0.95rem !important;
+  }
+
+  /* tabs (Entrar / Criar conta / Recuperar senha) */
+  button[data-baseweb="tab"] {
+    font-size: 0.9rem !important;
+    padding: 6px 8px !important;
+  }
+
+}
