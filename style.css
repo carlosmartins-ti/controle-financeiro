@@ -72,39 +72,3 @@
   color: #4f8bf9;
   text-decoration: none;
 }
-/* ===== HIDE STREAMLIT CLOUD HEADER ===== */
-header {
-    visibility: hidden;
-}
-
-#MainMenu {
-    visibility: hidden;
-}
-
-footer {
-    visibility: hidden;
-}
-
-/* ===================== HIDE STREAMLIT CLOUD UI ===================== */
-
-/* some com header/toolbar/menu */
-header, footer { visibility: hidden !important; height: 0 !important; }
-#MainMenu { visibility: hidden !important; }
-
-/* botões/ícones flutuantes (canto inferior direito) */
-div[style*="position: fixed"][style*="bottom"][style*="right"] {
-  display: none !important;
-}
-
-/* alguns builds usam containers específicos */
-div[data-testid="stStatusWidget"] { display: none !important; }
-div[data-testid="stToolbar"] { display: none !important; }
-div[data-testid="stDecoration"] { display: none !important; }
-div[data-testid="stAppToolbar"] { display: none !important; }
-
-/* (fallback) qualquer “badge/deploy/viewer” comum do Streamlit Cloud */
-[class*="viewerBadge"], [class*="deploy"], [class*="stDeployButton"] {
-  display: none !important;
-}
-
-
