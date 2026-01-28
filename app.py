@@ -81,7 +81,12 @@ def screen_auth():
     # ---------- LOGIN ----------
     with t1:
         u = st.text_input("Usuário", key="login_user")
-        p = st.text_input("Senha", type="password", key="login_pass")
+        p = st.text_input(
+    "Senha",
+    type="password",
+    key="login_pass",
+    show_password=True
+)
 
         if st.button("Entrar", key="btn_login"):
             uid = authenticate(u, p)
