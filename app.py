@@ -14,42 +14,11 @@ st.set_page_config(
     layout="wide"
 )
 
-# ================= UI CLEAN (ESCONDE BOTÕES STREAMLIT CLOUD) =================
-def hide_streamlit_ui():
-    st.markdown(
-        """
-        <style>
-        /* Top bar (Fork, GitHub, menu) */
-        header {
-            display: none !important;
-        }
-
-        /* Botões flutuantes canto inferior direito */
-        div[data-testid="stToolbar"] {
-            display: none !important;
-        }
-
-        /* NÃO mexe na seta da sidebar */
-        button[aria-label="Collapse sidebar"],
-        button[aria-label="Expand sidebar"] {
-            display: inline-flex !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-# Esconde para usuários comuns
-# (admin continua vendo se quiser)
-# if not is_admin():  ← NÃO aqui ainda
-hide_streamlit_ui()
-
-# 🔥 CSS DO APP
+# 🔥 CSS (OBRIGATÓRIO PARA MOBILE)
 with open("style.css", "r", encoding="utf-8") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 init_db()
-
 
 ADMIN_USERNAME = "carlos.martins"
 
