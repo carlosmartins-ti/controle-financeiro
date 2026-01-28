@@ -204,28 +204,34 @@ def screen_app():
 
     st.divider()
 
-    # ================= DESPESAS =================
-    if page == "🧾 Despesas":
-        st.subheader("🧾 Despesas")
+# ================= DESPESAS =================
+if page == "🧾 Despesas":
+    st.subheader("🧾 Despesas")
 
-        cats = repos.list_categories(st.session_state.user_id)
-        cat_map = {name: cid for cid, name in cats}
-        cat_names = ["(Sem categoria)"] + list(cat_map.keys())
+    cats = repos.list_categories(st.session_state.user_id)
+    cat_map = {name: cid for cid, name in cats}
+    cat_names = ["(Sem categoria)"] + list(cat_map.keys())
 
-        with st.expander("➕ Adicionar despesa", expanded=True):
-            a1,a2,a3,a4,a5 = st.columns([3,1,1.3,2,1])
-            desc = a1.text_input("Descrição", key="add_desc")
-            val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0, key="add_val")
-            venc = st.date_input(
-    "Vencimento",
-    value=date.today(),
-    format="DD/MM/YYYY"
-)
-            cat_name = a4.selectbox("Categoria", cat_names, key="add_cat")
-            parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1, key="add_parc")
+    with st.expander("➕ Adicionar despesa", expanded=True):
+        a1, a2, a3, a4, a5 = st.columns([3, 1, 1.3, 2, 1])
 
-            if st.button("Adicionar", type="primary", key="btn_add"):
+        desc = a1.text_input("Descrição", key="add_desc")
+        val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0, key="add_val")
+        venc = a3.date_input(
+            "Vencimento",
+            value=date.today(),
+            format="DD/MM/YYYY",
+            key="add_venc"
+        )
+        cat_name = a4.selectbox("Categoria", cat_names, key="add_cat")
+        parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1, key="add_parc")
+
+        if st.button("Adicionar", type="primary", key="btn_add"):
+            if not desc or val <= 0:
+                st.error("Preencha a descrição e um valor válido.")
+            else:
                 cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
+
                 repos.add_payment(
                     st.session_state.user_id,
                     desc,
@@ -237,7 +243,16 @@ def screen_app():
                     is_credit=1 if parcelas > 1 else 0,
                     installments=parcelas
                 )
+
+                # ✅ LIMPA OS CAMPOS (mantém sua estrutura e seus keys)
+                st.session_state["add_desc"] = ""
+                st.session_state["add_val"] = 0.0
+                st.session_state["add_venc"] = date.today()
+                st.session_state["add_cat"] = "(Sem categoria)"
+                st.session_state["add_parc"] = 1
+
                 st.rerun()
+
 
         # -------- FATURA DO CARTÃO --------
         credit_rows = [r for r in rows if r[7] and "cart" in r[7].lower()]
