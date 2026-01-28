@@ -72,4 +72,17 @@
   color: #4f8bf9;
   text-decoration: none;
 }
+/* ===== HIDE STREAMLIT CLOUD HEADER ===== */
+header {
+    visibility: hidden;
+}
+
+#MainMenu {
+    visibility: hidden;
+}
+
+footer {
+    visibility: hidden;
+}
+
 
