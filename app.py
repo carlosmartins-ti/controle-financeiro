@@ -308,7 +308,7 @@ if page == "🧾 Despesas":
                 st.rerun()
 
     # ================= DASHBOARD =================
-    elif page == "📊 Dashboard":
+elif page == "📊 Dashboard":
         st.subheader("📊 Dashboard")
         if not df.empty:
             df2 = df.copy()
@@ -317,7 +317,7 @@ if page == "🧾 Despesas":
             st.plotly_chart(fig, use_container_width=True)
 
     # ================= CATEGORIAS =================
-    elif page == "🏷️ Categorias":
+elif page == "🏷️ Categorias":
         st.subheader("🏷️ Categorias")
         new_cat = st.text_input("Nova categoria", key="new_cat")
         if st.button("Adicionar", key="btn_add_cat"):
@@ -332,7 +332,7 @@ if page == "🧾 Despesas":
                 st.rerun()
 
     # ================= PLANEJAMENTO =================
-    elif page == "💰 Planejamento":
+elif page == "💰 Planejamento":
         st.subheader("💰 Planejamento")
         renda_v = st.number_input("Renda", value=float(renda), key="renda")
         meta_v = st.number_input("Meta de gastos", value=float(budget["expense_goal"]), key="meta")
