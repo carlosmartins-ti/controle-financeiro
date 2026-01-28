@@ -13,26 +13,23 @@ st.set_page_config(
     page_icon="💳",
     layout="wide"
 )
+
+# ================= UI CLEAN (ESCONDE BOTÕES STREAMLIT CLOUD) =================
 def hide_streamlit_ui():
     st.markdown(
         """
         <style>
-        /* Esconde botões flutuantes do Streamlit Cloud */
-        div[data-testid="stToolbar"] {
-            display: none !important;
-        }
-
-        /* Esconde menu superior (Fork, GitHub, etc) */
+        /* Top bar (Fork, GitHub, menu) */
         header {
             display: none !important;
         }
 
-        /* Corrige espaço deixado pelo header */
-        section[data-testid="stSidebar"] > div:first-child {
-            margin-top: 0 !important;
+        /* Botões flutuantes canto inferior direito */
+        div[data-testid="stToolbar"] {
+            display: none !important;
         }
 
-        /* Mantém a seta da sidebar funcionando */
+        /* NÃO mexe na seta da sidebar */
         button[aria-label="Collapse sidebar"],
         button[aria-label="Expand sidebar"] {
             display: inline-flex !important;
@@ -42,11 +39,17 @@ def hide_streamlit_ui():
         unsafe_allow_html=True,
     )
 
-# 🔥 CSS (OBRIGATÓRIO PARA MOBILE)
+# Esconde para usuários comuns
+# (admin continua vendo se quiser)
+# if not is_admin():  ← NÃO aqui ainda
+hide_streamlit_ui()
+
+# 🔥 CSS DO APP
 with open("style.css", "r", encoding="utf-8") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 init_db()
+
 
 ADMIN_USERNAME = "carlos.martins"
 
