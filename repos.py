@@ -4,65 +4,53 @@ from database import get_connection
 def _now():
     return datetime.datetime.now().isoformat(timespec="seconds")
 
-# -------------------- Default Categories --------------------
 DEFAULT_CATEGORIES = [
-    "Aluguel",
-    "Condomínio",
-    "Água",
-    "Luz",
-    "Plano celular",
-    "Internet",
-    "Supermercado",
-    "Restaurante",
-    "Delivery / iFood",
-    "Refeição trabalho",
-    "TV / Streaming",
-    "Transporte",
-    "Cartão de crédito",
-    "Contas fixas",
-    "Lazer",
-    "Saúde",
-    "Educação",
-    "Poupança",
-    "Roupas",
-    "Calçados",
-    "Cosméticos",
-    "Farmácia",
-    "Academia",
-    "Barbeiro / Salão",
-    "Cinema",
-    "Viagem",
-    "Passeios",
-    "Jogos",
-    "Bares / festas",
-    "Faculdade",
-    "Móveis",
-    "Outros",
-    "Imprevistos",
+    "Aluguel","Condomínio","Água","Luz","Plano celular","Internet",
+    "Supermercado","Restaurante","Delivery / iFood","Refeição trabalho",
+    "TV / Streaming","Transporte","Cartão de crédito","Contas fixas","Lazer",
+    "Saúde","Educação","Poupança","Roupas","Calçados","Cosméticos","Farmácia",
+    "Academia","Barbeiro / Salão","Cinema","Viagem","Passeios","Jogos",
+    "Bares / festas","Faculdade","Móveis","Outros","Imprevistos",
 ]
 
-# -------------------- Categories --------------------
-def list_categories(user_id: int):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, name FROM categories WHERE user_id = ? ORDER BY name",
-        (user_id,)
-    )
-    rows = cur.fetchall()
-    conn.close()
-    return rows
+def seed_default_categories(user_id: int):
+    """
+    Cria categorias padrão para o usuário, se ainda não existirem.
+    Compatível com schema com ou sem coluna created_at.
+    Pode ser chamada várias vezes sem duplicar (UNIQUE(user_id, name)).
+    """
+    if user_id is None:
+        return
 
-def create_category(user_id: int, name: str):
-    name = (name or "").strip()
-    if not name:
-        raise ValueError("Nome da categoria é obrigatório.")
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO categories (user_id, name, created_at) VALUES (?, ?, ?)",
-        (user_id, name, _now())
-    )
+
+    # Detecta se existe created_at na tabela categories
+    cur.execute("PRAGMA table_info(categories)")
+    cols = {row[1] for row in cur.fetchall()}
+    has_created_at = "created_at" in cols
+
+    if has_created_at:
+        for name in DEFAULT_CATEGORIES:
+            cur.execute(
+                """
+                INSERT INTO categories (user_id, name, created_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(user_id, name) DO NOTHING
+                """,
+                (user_id, name, _now())
+            )
+    else:
+        for name in DEFAULT_CATEGORIES:
+            cur.execute(
+                """
+                INSERT INTO categories (user_id, name)
+                VALUES (?, ?)
+                ON CONFLICT(user_id, name) DO NOTHING
+                """,
+                (user_id, name)
+            )
+
     conn.commit()
     conn.close()
 
