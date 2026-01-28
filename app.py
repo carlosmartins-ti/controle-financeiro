@@ -93,8 +93,8 @@ def screen_auth():
                 st.session_state.username = u.strip().lower()
 
                 # categorias padrão (novos e antigos)
-                repos.ensure_default_categories(uid)
-
+                repos.seed_default_categories(uid)
+                
                 st.rerun()
             else:
                 st.error("Usuário ou senha inválidos.")
