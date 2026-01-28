@@ -244,7 +244,7 @@ if page == "🧾 Despesas":
                     installments=parcelas
                 )
 
-                # ✅ LIMPA OS CAMPOS (mantém sua estrutura e seus keys)
+                # ✅ LIMPA OS CAMPOS
                 st.session_state["add_desc"] = ""
                 st.session_state["add_val"] = 0.0
                 st.session_state["add_venc"] = date.today()
@@ -253,45 +253,18 @@ if page == "🧾 Despesas":
 
                 st.rerun()
 
+    st.divider()
 
-        # -------- FATURA DO CARTÃO --------
-        credit_rows = [r for r in rows if r[7] and "cart" in r[7].lower()]
-        if credit_rows:
-            open_credit = [r for r in credit_rows if r[4] == 0]
-            total_fatura = sum(float(r[2]) for r in open_credit)
-
-            st.divider()
-            st.subheader("💳 Fatura do cartão")
-            c1,c2 = st.columns([3,1])
-            c1.metric("Total em aberto", fmt_brl(total_fatura))
-
-            if open_credit:
-                if c2.button("💰 Pagar fatura do cartão", key="pay_card"):
-                    repos.mark_credit_invoice_paid(st.session_state.user_id, month, year)
-                    st.rerun()
-            else:
-                if c2.button("🔄 Desfazer pagamento da fatura", key="unpay_card"):
-                    repos.unmark_credit_invoice_paid(st.session_state.user_id, month, year)
-                    st.rerun()
-
-        st.divider()
-
+    if df.empty:
+        st.info("Nenhuma despesa cadastrada neste período.")
+    else:
         for r in rows:
             pid, desc, amount, due, paid, _, _, cat_name, *_ = r
             a,b,c,d,e,f = st.columns([4,1.2,1.8,1.2,1.2,1])
 
             a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
             b.write(fmt_brl(amount))
-
-            status, color = status_vencimento(due, paid)
-            if status:
-                c.markdown(
-                    f"<span style='color:{color}; font-weight:600'>{format_date_br(due)} — {status}</span>",
-                    unsafe_allow_html=True
-                )
-            else:
-                c.write(format_date_br(due))
-
+            c.write(format_date_br(due))
             d.write("✅ Paga" if paid else "🕓 Em aberto")
 
             if not paid:
@@ -307,38 +280,42 @@ if page == "🧾 Despesas":
                 repos.delete_payment(st.session_state.user_id, pid)
                 st.rerun()
 
-    # ================= DASHBOARD =================
-elif page == "📊 Dashboard":
-        st.subheader("📊 Dashboard")
-        if not df.empty:
-            df2 = df.copy()
-            df2["Categoria"] = df2["Categoria"].fillna("Sem categoria")
-            fig = px.pie(df2, names="Categoria", values="Valor")
-            st.plotly_chart(fig, use_container_width=True)
 
-    # ================= CATEGORIAS =================
+# ================= DASHBOARD =================
+elif page == "📊 Dashboard":
+    st.subheader("📊 Dashboard")
+    if not df.empty:
+        df2 = df.copy()
+        df2["Categoria"] = df2["Categoria"].fillna("Sem categoria")
+        fig = px.pie(df2, names="Categoria", values="Valor")
+        st.plotly_chart(fig, use_container_width=True)
+
+
+# ================= CATEGORIAS =================
 elif page == "🏷️ Categorias":
-        st.subheader("🏷️ Categorias")
-        new_cat = st.text_input("Nova categoria", key="new_cat")
-        if st.button("Adicionar", key="btn_add_cat"):
-            repos.create_category(st.session_state.user_id, new_cat)
+    st.subheader("🏷️ Categorias")
+    new_cat = st.text_input("Nova categoria", key="new_cat")
+    if st.button("Adicionar", key="btn_add_cat"):
+        repos.create_category(st.session_state.user_id, new_cat)
+        st.rerun()
+
+    for cid, name in repos.list_categories(st.session_state.user_id):
+        a,b = st.columns([4,1])
+        a.write(name)
+        if b.button("Excluir", key=f"cat_{cid}"):
+            repos.delete_category(st.session_state.user_id, cid)
             st.rerun()
 
-        for cid, name in repos.list_categories(st.session_state.user_id):
-            a,b = st.columns([4,1])
-            a.write(name)
-            if b.button("Excluir", key=f"cat_{cid}"):
-                repos.delete_category(st.session_state.user_id, cid)
-                st.rerun()
 
-    # ================= PLANEJAMENTO =================
+# ================= PLANEJAMENTO =================
 elif page == "💰 Planejamento":
-        st.subheader("💰 Planejamento")
-        renda_v = st.number_input("Renda", value=float(renda), key="renda")
-        meta_v = st.number_input("Meta de gastos", value=float(budget["expense_goal"]), key="meta")
-        if st.button("Salvar", key="btn_save_plan"):
-            repos.upsert_budget(st.session_state.user_id, month, year, renda_v, meta_v)
-            st.success("Planejamento salvo.")
+    st.subheader("💰 Planejamento")
+    renda_v = st.number_input("Renda", value=float(renda), key="renda")
+    meta_v = st.number_input("Meta de gastos", value=float(budget["expense_goal"]), key="meta")
+    if st.button("Salvar", key="btn_save_plan"):
+        repos.upsert_budget(st.session_state.user_id, month, year, renda_v, meta_v)
+        st.success("Planejamento salvo.")
+
 
 # ================= ROUTER =================
 if st.session_state.user_id is None:
