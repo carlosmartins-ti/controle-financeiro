@@ -133,20 +133,6 @@ def screen_auth():
                 else:
                     st.error("Resposta incorreta.")
 
-    with t3:
-        u = st.text_input("Usuário", key="reset_user")
-        u_norm = (u or "").strip().lower()
-        q = get_security_question(u_norm) if u_norm else None
-        if q:
-            st.info(q)
-            a = st.text_input("Resposta", key="reset_a")
-            np = st.text_input("Nova senha", type="password", key="reset_np")
-            if st.button("Redefinir senha", key="btn_reset", use_container_width=True):
-                if reset_password(u_norm, a, np):
-                    st.success("Senha alterada!")
-                else:
-                    st.error("Resposta incorreta.")
-
 # ================= APP =================
 def screen_app():
     with st.sidebar:
