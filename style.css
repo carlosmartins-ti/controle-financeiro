@@ -8,30 +8,29 @@
     border-radius: 14px;
     background: rgba(255,255,255,0.03);
 }
-.muted { opacity: 0.75; }
-/* ===================== MOBILE FIX ===================== */
+/* ===================== MOBILE + DARK/LIGHT FIX ===================== */
 @media (max-width: 768px) {
 
-  /* container principal */
+  /* respeita notch / status bar */
   .block-container {
-    padding: 1rem 1rem 2rem 1rem !important;
+    padding-top: calc(env(safe-area-inset-top) + 1rem) !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    padding-bottom: 2rem !important;
   }
 
   /* título principal */
-  h1 {
+  h1, h2 {
     font-size: 1.6rem !important;
-    line-height: 1.2 !important;
-    text-align: left !important;
+    line-height: 1.25 !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.75rem !important;
   }
 
-  /* subtítulo / caption */
-  .stCaption {
+  /* tabs */
+  button[data-baseweb="tab"] {
     font-size: 0.9rem !important;
-  }
-
-  /* card de autenticação */
-  .auth-box {
-    padding: 12px !important;
+    padding: 6px 10px !important;
   }
 
   /* inputs */
@@ -42,13 +41,35 @@
   /* botões */
   button {
     width: 100% !important;
-    font-size: 0.95rem !important;
   }
-
-  /* tabs (Entrar / Criar conta / Recuperar senha) */
-  button[data-baseweb="tab"] {
-    font-size: 0.9rem !important;
-    padding: 6px 8px !important;
-  }
-
 }
+
+/* ===================== CARD DE AUTENTICAÇÃO ===================== */
+
+/* estrutura base */
+.auth-box {
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 1rem;
+}
+
+/* LIGHT MODE */
+[data-theme="light"] .auth-box {
+  background-color: #f0f2f6;
+  color: #000000;
+  border-left: 5px solid #4f8bf9;
+}
+
+/* DARK MODE */
+[data-theme="dark"] .auth-box {
+  background-color: #1e1e1e;
+  color: #eaeaea;
+  border-left: 5px solid #4f8bf9;
+}
+
+/* link do email */
+.auth-box a {
+  color: #4f8bf9;
+  text-decoration: none;
+}
+
