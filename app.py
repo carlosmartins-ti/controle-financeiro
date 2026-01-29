@@ -313,16 +313,19 @@ def screen_app():
         submitted = st.form_submit_button("Adicionar")
 
     if submitted and new_cat.strip():
-        repos.create_category(st.session_state.user_id, new_cat.strip())
+        repos.create_category(
+            st.session_state.user_id,
+            new_cat.strip()
+        )
         st.success("Categoria adicionada!")
         st.rerun()
 
-        for cid, name in repos.list_categories(st.session_state.user_id):
-            a, b = st.columns([4, 1])
-            a.write(name)
-            if b.button("Excluir", key=f"cat_{cid}"):
-                repos.delete_category(st.session_state.user_id, cid)
-                st.rerun()
+    for cid, name in repos.list_categories(st.session_state.user_id):
+        a, b = st.columns([4, 1])
+        a.write(name)
+        if b.button("Excluir", key=f"cat_{cid}"):
+            repos.delete_category(st.session_state.user_id, cid)
+            st.rerun()
 
     elif page == "💰 Planejamento":
         st.subheader("💰 Planejamento")
