@@ -43,7 +43,7 @@ def is_admin():
     return st.session_state.username == ADMIN_USERNAME
 
 # ================= SESSION =================
-for k in ["user_id", "username"]:
+for k in ["user_id", "username", "edit_id"]:
     if k not in st.session_state:
         st.session_state[k] = None
 
@@ -109,16 +109,13 @@ def screen_auth():
         a = st.text_input("Resposta", key="signup_answer")
 
         if st.button("Criar conta", key="btn_signup"):
-            try:
-                create_user(u, p, q, a)
-                uid = authenticate(u, p)
-                st.session_state.user_id = uid
-                st.session_state.username = u.strip().lower()
-                repos.seed_default_categories(uid)
-                st.success("Conta criada com sucesso.")
-                st.rerun()
-            except ValueError as e:
-                st.error(str(e))
+            create_user(u, p, q, a)
+            uid = authenticate(u, p)
+            st.session_state.user_id = uid
+            st.session_state.username = u.strip().lower()
+            repos.seed_default_categories(uid)
+            st.success("Conta criada com sucesso.")
+            st.rerun()
 
     with t3:
         u = st.text_input("Usuário", key="reset_user")
@@ -202,7 +199,7 @@ def screen_app():
         cat_names = ["(Sem categoria)"] + list(cat_map.keys())
 
         with st.expander("➕ Adicionar despesa", expanded=True):
-            with st.form("form_add_despesa", clear_on_submit=True):
+            with st.form("form_add_despesa"):
                 a1, a2, a3, a4, a5 = st.columns([3, 1, 1.3, 2, 1])
 
                 desc = a1.text_input("Descrição")
@@ -234,39 +231,26 @@ def screen_app():
         if df.empty:
             st.info("Nenhuma despesa cadastrada.")
         else:
-            cartao_rows = [r for r in rows if r[7] and "cart" in r[7].lower()]
-            abertas = [r for r in cartao_rows if r[4] == 0]
-            total_cartao = sum(float(r[2]) for r in abertas)
+            cartao_id = next((cid for cid, n in cats if n.lower() == "cartão de crédito"), None)
 
-            if cartao_rows:
-                cfa, cfb = st.columns(2)
+            if cartao_id:
+                ids = [r[0] for r in rows if r[6] == cartao_id]
+                total_cartao = sum(r[2] for r in rows if r[6] == cartao_id)
 
-                if cfa.button("💳 Unir fatura do Cartão de crédito"):
-                    repos.mark_credit_invoice_paid(
-                        st.session_state.user_id,
-                        month,
-                        year
-                    )
-                    st.success("Fatura do cartão paga.")
+                if st.button("💳 Unir fatura do Cartão de crédito"):
+                    repos.merge_credit_group(st.session_state.user_id, ids)
+                    st.success("Fatura do cartão unida com sucesso.")
                     st.rerun()
 
-                if cfb.button("↩️ Desfazer fatura do Cartão de crédito"):
-                    repos.unmark_credit_invoice_paid(
-                        st.session_state.user_id,
-                        month,
-                        year
-                    )
-                    st.success("Pagamento da fatura desfeito.")
+                if st.button("↩️ Desfazer fatura do Cartão de crédito"):
+                    repos.unmark_credit_invoice_paid(st.session_state.user_id, month, year)
+                    st.success("Fatura do cartão desfeita.")
                     st.rerun()
 
                 st.metric("💳 Total da fatura do cartão", fmt_brl(total_cartao))
 
-            if "edit_id" not in st.session_state:
-                st.session_state.edit_id = None
-
             for r in rows:
-                pid, desc, amount, due, paid, _, _, cat_name, *_ = r
-
+                pid, desc, amount, due, paid, _, _, cat_name, _, _, _, credit_group = r
                 a, b, c, d, e, f = st.columns([4, 1.2, 1.8, 1.2, 1.2, 1])
 
                 a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
@@ -283,9 +267,12 @@ def screen_app():
                         repos.mark_paid(st.session_state.user_id, pid, False)
                         st.rerun()
 
-                if f.button("✏️ Editar", key=f"edit_{pid}"):
-                    st.session_state.edit_id = pid
-                    st.rerun()
+                if credit_group is None:
+                    if f.button("✏️ Editar", key=f"edit_{pid}"):
+                        st.session_state.edit_id = pid
+                        st.rerun()
+                else:
+                    f.caption("🔒 Fatura unificada")
 
                 if f.button("Excluir", key=f"del_{pid}"):
                     repos.delete_payment(st.session_state.user_id, pid)
@@ -295,14 +282,10 @@ def screen_app():
                     with st.form(f"edit_form_{pid}"):
                         n_desc = st.text_input("Descrição", value=desc)
                         n_val = st.number_input("Valor", value=float(amount), step=10.0)
-                        n_venc = st.date_input(
-                            "Vencimento",
-                            value=datetime.fromisoformat(due).date()
-                        )
+                        n_venc = st.date_input("Vencimento", value=datetime.fromisoformat(due).date())
 
-                        col1, col2 = st.columns(2)
-                        salvar = col1.form_submit_button("Salvar")
-                        cancelar = col2.form_submit_button("Cancelar")
+                        salvar = st.form_submit_button("Salvar")
+                        cancelar = st.form_submit_button("Cancelar")
 
                     if salvar:
                         repos.update_payment(
@@ -344,13 +327,7 @@ def screen_app():
         renda_v = st.number_input("Renda", value=float(renda))
         meta_v = st.number_input("Meta de gastos", value=float(budget["expense_goal"]))
         if st.button("Salvar"):
-            repos.upsert_budget(
-                st.session_state.user_id,
-                month,
-                year,
-                renda_v,
-                meta_v
-            )
+            repos.upsert_budget(st.session_state.user_id, month, year, renda_v, meta_v)
             st.success("Planejamento salvo.")
 
 # ================= ROUTER =================
