@@ -1,6 +1,3 @@
-# ARQUIVO app.py (TELA DE DESPESAS RESTAURADA)
-# >>> NADA FOI REMOVIDO: Marcar como paga, Desfazer e fluxo original RESTAURADOS <<<
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
