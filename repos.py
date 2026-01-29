@@ -318,4 +318,44 @@ def merge_credit_group(user_id: int, payment_ids: list[int]):
 
     conn.commit()
     conn.close()
+    # -------------------- Update Payment --------------------
+def update_payment(
+    user_id: int,
+    payment_id: int,
+    description: str,
+    amount: float,
+    due_date: str
+):
+    from datetime import datetime
+
+    d = datetime.fromisoformat(due_date)
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        UPDATE payments
+        SET description = ?,
+            amount = ?,
+            due_date = ?,
+            month = ?,
+            year = ?
+        WHERE user_id = ?
+          AND id = ?
+        """,
+        (
+            description,
+            amount,
+            due_date,
+            d.month,
+            d.year,
+            user_id,
+            payment_id
+        )
+    )
+
+    conn.commit()
+    conn.close()
+
 
