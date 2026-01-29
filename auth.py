@@ -17,7 +17,7 @@ def verify_text(text: str, hashed: str) -> bool:
 
 # -------------------- CREATE USER --------------------
 def create_user(username, password, security_question, security_answer):
-    username = (username or "").strip().lower()
+    username = username.strip().lower()
     password = password or ""
     security_answer = security_answer or ""
 
@@ -50,8 +50,8 @@ def create_user(username, password, security_question, security_answer):
 
 
 # -------------------- AUTHENTICATE --------------------
-def authenticate(username: str, password: str):
-    username = (username or "").strip().lower()
+def authenticate(username, password):
+    username = username.strip().lower()
 
     conn = get_connection()
     cur = conn.cursor()
