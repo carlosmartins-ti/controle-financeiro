@@ -270,37 +270,34 @@ def screen_app():
                     st.success("Despesa adicionada!")
                     st.rerun()
 
-        st.divider()
-
-if df.empty:
-    st.info("Nenhuma despesa cadastrada.")
-else:
+            if df.empty:
+              st.info("Nenhuma despesa cadastrada.")
+               else:
     # >>> CONTROLE DE EDIÇÃO E UNIÃO DE FATURA
-    if "edit_id" not in st.session_state:
-        st.session_state.edit_id = None
+               if "edit_id" not in st.session_state:
+                   st.session_state.edit_id = None
+ 
+               if "to_merge" not in st.session_state:
+                st.session_state.to_merge = []
 
-    if "to_merge" not in st.session_state:
-        st.session_state.to_merge = []
-
-    if st.button("🔗 Unir fatura"):
-        if len(st.session_state.to_merge) > 1:
-            repos.merge_credit_group(
+               if st.button("🔗 Unir fatura"):
+               if len(st.session_state.to_merge) > 1:
+                 repos.merge_credit_group(
                 st.session_state.user_id,
                 st.session_state.to_merge
             )
-            st.success("Faturas unidas com sucesso.")
-            st.session_state.to_merge = []
-            st.rerun()
-        else:
-            st.warning("Selecione pelo menos 2 despesas.")
+                st.success("Faturas unidas com sucesso.")
+                st.session_state.to_merge = []
+                st.rerun()
+              else:
+                st.warning("Selecione pelo menos 2 despesas.")
 
-    # >>> LISTAGEM DE DESPESAS
-    for r in rows:
-        pid, desc, amount, due, paid, _, _, cat_name, *_ = r
+                   # >>> LISTAGEM DE DESPESAS
+              for r in rows:
+                pid, desc, amount, due, paid, _, _, cat_name, *_ = r
 
-        a0, a, b, c, d, e, f = st.columns([0.4, 3.6, 1.2, 1.8, 1.2, 1, 1])
-
-        if a0.checkbox("", key=f"chk_{pid}"):
+                  a0, a, b, c, d, e, f = st.columns([0.4, 3.6, 1.2, 1.8, 1.2, 1, 1])
+                  if a0.checkbox("", key=f"chk_{pid}"):
             if pid not in st.session_state.to_merge:
                 st.session_state.to_merge.append(pid)
 
@@ -353,7 +350,6 @@ else:
             if cancelar:
                 st.session_state.edit_id = None
                 st.rerun()
-
 
     # ================= DASHBOARD =================
     elif page == "📊 Dashboard":
