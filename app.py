@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import date, datetime
+import streamlit.components.v1 as components
+
 
 from database import init_db
 from auth import authenticate, create_user, get_security_question, reset_password
@@ -65,37 +67,41 @@ for k in ["user_id", "username"]:
 def screen_auth():
     st.title("💳 Controle Financeiro")
 
-    st.markdown(
+    components.html(
     """
     <div style="
         background: linear-gradient(135deg, #1f2937, #111827);
-        border-radius: 10px;
+        border-radius: 12px;
         padding: 16px;
-        margin-top: 12px;
+        margin: 14px 0;
         color: #e5e7eb;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-        max-width: 520px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+        font-family: system-ui, -apple-system, BlinkMacSystemFont;
     ">
         <div style="display: flex; align-items: center; gap: 10px;">
             <span style="font-size: 22px;">🔐</span>
-            <b style="font-size: 16px;">Autenticação e autoria do projeto</b>
+            <strong style="font-size: 15px;">
+                Autenticação e autoria do projeto
+            </strong>
         </div>
 
         <div style="margin-top: 10px; font-size: 14px; line-height: 1.5;">
-            Aplicação desenvolvida por <b>Carlos Martins</b>.<br>
+            Aplicação desenvolvida por <strong>Carlos Martins</strong>.<br>
             Para dúvidas, sugestões ou suporte técnico:
         </div>
 
         <div style="margin-top: 8px;">
-            📧 <a href="mailto:cr954479@gmail.com"
-                 style="color:#60a5fa; font-weight:600; text-decoration:none;">
+            📧
+            <a href="mailto:cr954479@gmail.com"
+               style="color:#60a5fa; font-weight:600; text-decoration:none;">
                 cr954479@gmail.com
             </a>
         </div>
     </div>
     """,
-    unsafe_allow_html=True
+    height=170
 )
+
 
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
