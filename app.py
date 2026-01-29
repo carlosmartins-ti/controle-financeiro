@@ -243,7 +243,7 @@ def screen_app():
                     except Exception:
                         st.error("❌ Não foi possível cadastrar a despesa.")
 
-            # -------- FATURA DO CARTÃO (UNIR + DESFAZER) --------
+            # -------- FATURA DO CARTÃO (PAGAR / DESFAZER) --------
             card_cat_ids = [cid for cid, name in cats if name and "cart" in str(name).lower()]
             credit_rows = [r for r in rows if (r[6] in card_cat_ids)]
             if credit_rows:
@@ -253,10 +253,9 @@ def screen_app():
                 st.divider()
                 st.subheader("💳 Fatura do cartão")
 
-                cA, cB, cC = st.columns([2.2, 1.2, 2.6])
+                cA, cB = st.columns([2.2, 1.2])
                 cA.metric("Total em aberto", fmt_brl(total_fatura))
 
-                # Pagar / Desfazer pagamento da fatura (marcar tudo pago/não pago)
                 if open_credit:
                     if cB.button("💰 Pagar fatura do cartão", key="pay_card"):
                         repos.mark_credit_invoice_paid(st.session_state.user_id, month, year)
@@ -267,27 +266,6 @@ def screen_app():
                         repos.unmark_credit_invoice_paid(st.session_state.user_id, month, year)
                         st.session_state.msg_ok = "Pagamento da fatura desfeito!"
                         st.rerun()
-
-                # Unir fatura (apenas agrupa os lançamentos selecionados)
-                if open_credit:
-                    cC.markdown("**Unir lançamentos (selecionar itens em aberto):**")
-                    selected_ids = []
-                    for r in open_credit:
-                        pid, desc_r, amount, due, paid, _, _, cat_name_r, *_ = r
-                        chk_key = f"merge_{pid}"
-                        if chk_key not in st.session_state:
-                            st.session_state[chk_key] = False
-                        if cC.checkbox(f"{desc_r} — {fmt_brl(amount)} — {format_date_br(due)}", key=chk_key):
-                            selected_ids.append(pid)
-
-                    btn_unir = cC.button("🔗 Unir selecionados", key="btn_merge_credit")
-                    if btn_unir:
-                        if len(selected_ids) < 2:
-                            st.warning("Selecione pelo menos 2 lançamentos para unir.")
-                        else:
-                            repos.merge_credit_group(st.session_state.user_id, selected_ids)
-                            st.session_state.msg_ok = "Lançamentos unidos com sucesso!"
-                            st.rerun()
 
             st.divider()
 
