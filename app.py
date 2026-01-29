@@ -191,78 +191,136 @@ def screen_app():
     st.divider()
 
     # ================= DESPESAS =================
-    if page == "🧾 Despesas":
-        st.subheader("🧾 Despesas")
+if page == "🧾 Despesas":
+    st.subheader("🧾 Despesas")
 
-        cats = repos.list_categories(st.session_state.user_id)
-        cat_map = {name: cid for cid, name in cats}
-        cat_names = ["(Sem categoria)"] + list(cat_map.keys())
+    cats = repos.list_categories(st.session_state.user_id)
+    cat_map = {name: cid for cid, name in cats}
+    cat_names = ["(Sem categoria)"] + list(cat_map.keys())
 
-        with st.expander("➕ Adicionar despesa", expanded=True):
-            with st.form("form_add_despesa"):
-                a1, a2, a3, a4, a5 = st.columns([3, 1, 1.3, 2, 1])
-                desc = a1.text_input("Descrição")
-                val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0)
-                venc = a3.date_input("Vencimento", value=date.today(), format="DD/MM/YYYY")
-                cat_name = a4.selectbox("Categoria", cat_names)
-                parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1)
-                submitted = st.form_submit_button("Adicionar")
+    # ---------- ADICIONAR ----------
+    with st.expander("➕ Adicionar despesa", expanded=True):
+        with st.form("form_add_despesa", clear_on_submit=True):
+            a1, a2, a3, a4, a5 = st.columns([3, 1, 1.3, 2, 1])
 
-            if submitted:
-                cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
-                repos.add_payment(
+            desc = a1.text_input("Descrição")
+            val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0)
+            venc = a3.date_input("Vencimento", value=date.today(), format="DD/MM/YYYY")
+            cat_name = a4.selectbox("Categoria", cat_names)
+            parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1)
+
+            submitted = st.form_submit_button("Adicionar")
+
+        if submitted:
+            cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
+            repos.add_payment(
+                st.session_state.user_id,
+                desc,
+                val,
+                str(venc),
+                month,
+                year,
+                cid,
+                is_credit=1 if parcelas > 1 else 0,
+                installments=parcelas
+            )
+            st.success("Despesa adicionada!")
+            st.rerun()
+
+    st.divider()
+
+    if df.empty:
+        st.info("Nenhuma despesa cadastrada.")
+    else:
+        # ---------- FATURA CARTÃO ----------
+        cartao_rows = [r for r in rows if r[7] and "cart" in r[7].lower()]
+        abertas = [r for r in cartao_rows if r[4] == 0]
+        total_cartao = sum(float(r[2]) for r in abertas)
+
+        if cartao_rows:
+            col_f1, col_f2 = st.columns(2)
+
+            if col_f1.button("💳 Unir fatura do Cartão de crédito"):
+                repos.mark_credit_invoice_paid(
                     st.session_state.user_id,
-                    desc,
-                    val,
-                    str(venc),
                     month,
-                    year,
-                    cid,
-                    is_credit=1 if parcelas > 1 else 0,
-                    installments=parcelas
+                    year
                 )
-                st.success("Despesa adicionada!")
+                st.success("Fatura do cartão paga.")
                 st.rerun()
+
+            if col_f2.button("↩️ Desfazer fatura do Cartão de crédito"):
+                repos.unmark_credit_invoice_paid(
+                    st.session_state.user_id,
+                    month,
+                    year
+                )
+                st.success("Pagamento da fatura desfeito.")
+                st.rerun()
+
+            st.metric("💳 Total da fatura do cartão", fmt_brl(total_cartao))
 
         st.divider()
 
-        if df.empty:
-            st.info("Nenhuma despesa cadastrada.")
-        else:
-            cartao_rows = [r for r in rows if r[7] and "cart" in r[7].lower()]
-            abertas = [r for r in cartao_rows if r[4] == 0]
-            total_cartao = sum(r[2] for r in abertas)
+        # ---------- ESTADO DE EDIÇÃO ----------
+        if "edit_id" not in st.session_state:
+            st.session_state.edit_id = None
 
-            if cartao_rows:
-                if st.button("💳 Unir fatura do Cartão de crédito"):
-                    repos.mark_credit_invoice_paid(
-                        st.session_state.user_id, month, year
-                    )
-                    st.success("Fatura do cartão paga.")
+        # ---------- LISTAGEM ----------
+        for r in rows:
+            pid, desc, amount, due, paid, _, _, cat_name, *_ = r
+
+            a, b, c, d, e, f = st.columns([4, 1.2, 1.8, 1.2, 1.2, 1])
+
+            a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
+            b.write(fmt_brl(amount))
+            c.write(format_date_br(due))
+            d.write("✅ Paga" if paid else "🕓 Em aberto")
+
+            if not paid:
+                if e.button("Marcar como paga", key=f"pay_{pid}"):
+                    repos.mark_paid(st.session_state.user_id, pid, True)
+                    st.rerun()
+            else:
+                if e.button("Desfazer", key=f"unpay_{pid}"):
+                    repos.mark_paid(st.session_state.user_id, pid, False)
                     st.rerun()
 
-                st.metric("💳 Total da fatura do cartão", fmt_brl(total_cartao))
+            if f.button("✏️ Editar", key=f"edit_{pid}"):
+                st.session_state.edit_id = pid
+                st.rerun()
 
-            for r in rows:
-                pid, desc, amount, due, paid, _, _, cat_name, *_ = r
-                a, b, c, d, e, f = st.columns([4, 1.2, 1.8, 1.2, 1.2, 1])
+            if f.button("Excluir", key=f"del_{pid}"):
+                repos.delete_payment(st.session_state.user_id, pid)
+                st.rerun()
 
-                a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
-                b.write(fmt_brl(amount))
-                c.write(format_date_br(due))
-                d.write("✅ Paga" if paid else "🕓 Em aberto")
+            # ---------- FORM EDITAR ----------
+            if st.session_state.edit_id == pid:
+                with st.form(f"edit_form_{pid}"):
+                    n_desc = st.text_input("Descrição", value=desc)
+                    n_val = st.number_input("Valor", value=float(amount), step=10.0)
+                    n_venc = st.date_input(
+                        "Vencimento",
+                        value=datetime.fromisoformat(due).date()
+                    )
 
-                if not paid:
-                    if e.button("Marcar como paga", key=f"pay_{pid}"):
-                        repos.mark_paid(st.session_state.user_id, pid, True)
-                        st.rerun()
-                else:
-                    if e.button("Desfazer", key=f"unpay_{pid}"):
-                        repos.mark_paid(st.session_state.user_id, pid, False)
-                        st.rerun()
+                    col1, col2 = st.columns(2)
+                    salvar = col1.form_submit_button("Salvar")
+                    cancelar = col2.form_submit_button("Cancelar")
 
-                if f.button("Excluir", key=f"del_{pid}"):
-                    repos.delete_payment(st.session_state.user_id, pid)
+                if salvar:
+                    repos.update_payment(
+                        st.session_state.user_id,
+                        pid,
+                        n_desc,
+                        n_val,
+                        str(n_venc)
+                    )
+                    st.session_state.edit_id = None
+                    st.rerun()
+
+                if cancelar:
+                    st.session_state.edit_id = None
                     st.rerun()
 
     elif page == "📊 Dashboard":
