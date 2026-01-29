@@ -294,7 +294,8 @@ def upsert_budget(user_id: int, month: int, year: int, income: float, expense_go
     )
     conn.commit()
     conn.close()
-    # -------------------- Unir Fatura Cartão --------------------
+
+# -------------------- Unir Fatura Cartão --------------------
 def merge_credit_group(user_id: int, payment_ids: list[int]):
     if not payment_ids:
         return
@@ -318,13 +319,15 @@ def merge_credit_group(user_id: int, payment_ids: list[int]):
 
     conn.commit()
     conn.close()
-    # -------------------- Update Payment --------------------
+
+# -------------------- Update Payment --------------------
 def update_payment(
     user_id: int,
     payment_id: int,
     description: str,
     amount: float,
-    due_date: str
+    due_date: str,
+    category_id=None
 ):
     from datetime import datetime
 
@@ -340,7 +343,8 @@ def update_payment(
             amount = ?,
             due_date = ?,
             month = ?,
-            year = ?
+            year = ?,
+            category_id = ?
         WHERE user_id = ?
           AND id = ?
         """,
@@ -350,6 +354,7 @@ def update_payment(
             due_date,
             d.month,
             d.year,
+            category_id,
             user_id,
             payment_id
         )
@@ -357,5 +362,3 @@ def update_payment(
 
     conn.commit()
     conn.close()
-
-
