@@ -42,15 +42,10 @@ def format_date_br(s):
 def is_admin():
     return st.session_state.username == ADMIN_USERNAME
 
-# ================= SESSION (CORRIGIDO) =================
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-if "username" not in st.session_state:
-    st.session_state.username = None
-if "edit_id" not in st.session_state:
-    st.session_state.edit_id = None
-
-# msg_ok só existe quando for usada (não resetar aqui)
+# ================= SESSION =================
+for k in ["user_id", "username", "edit_id", "msg_ok"]:
+    if k not in st.session_state:
+        st.session_state[k] = None
 
 # ================= AUTH =================
 def screen_auth():
@@ -67,10 +62,20 @@ def screen_auth():
             box-shadow: 0 6px 18px rgba(0,0,0,0.45);
             font-family: system-ui;
         ">
-            <strong>Aplicação desenvolvida por Carlos Martins</strong>
+            <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:22px">🔐</span>
+                <strong>Autenticação e autoria do projeto</strong>
+            </div>
+            <div style="margin-top:10px;font-size:14px">
+                Aplicação desenvolvida por <strong>Carlos Martins</strong>.<br>
+                Para dúvidas, sugestões ou suporte técnico:
+            </div>
+            <div style="margin-top:8px">
+                📧 <a href="mailto:cr954479@gmail.com" style="color:#60a5fa">cr954479@gmail.com</a>
+            </div>
         </div>
         ''',
-        height=80
+        height=170
     )
 
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
@@ -79,7 +84,7 @@ def screen_auth():
         u = st.text_input("Usuário", key="login_user")
         p = st.text_input("Senha", type="password", key="login_pass")
 
-        if st.button("Entrar"):
+        if st.button("Entrar", key="btn_login"):
             uid = authenticate(u, p)
             if uid:
                 st.session_state.user_id = uid
@@ -91,14 +96,19 @@ def screen_auth():
     with t2:
         u = st.text_input("Novo usuário", key="signup_user")
         p = st.text_input("Nova senha", type="password", key="signup_pass")
-        q = st.selectbox("Pergunta de segurança", [
-            "Qual o nome do seu primeiro pet?",
-            "Qual o nome da sua mãe?",
-            "Qual sua cidade de nascimento?"
-        ])
-        a = st.text_input("Resposta")
+        q = st.selectbox(
+            "Pergunta de segurança",
+            [
+                "Qual o nome do seu primeiro pet?",
+                "Qual o nome da sua mãe?",
+                "Qual sua cidade de nascimento?",
+                "Qual seu filme favorito?"
+            ],
+            key="signup_q"
+        )
+        a = st.text_input("Resposta", key="signup_answer")
 
-        if st.button("Criar conta"):
+        if st.button("Criar conta", key="btn_signup"):
             create_user(u, p, q, a)
             uid = authenticate(u, p)
             st.session_state.user_id = uid
@@ -116,7 +126,7 @@ def screen_auth():
             a = st.text_input("Resposta", key="reset_answer")
             np = st.text_input("Nova senha", type="password", key="reset_pass")
 
-            if st.button("Redefinir senha"):
+            if st.button("Redefinir senha", key="btn_reset"):
                 if reset_password(u, a, np):
                     st.success("Senha alterada!")
                 else:
@@ -131,32 +141,41 @@ def screen_app():
 
         with st.sidebar:
             st.markdown(f"**Usuário:** {st.session_state.username}")
+            if is_admin():
+                st.caption("🔑 Administrador")
+
             today = date.today()
             month_label = st.selectbox("Mês", MESES, index=today.month - 1)
             year = st.selectbox("Ano", list(range(today.year - 2, today.year + 3)), index=2)
             month = MESES.index(month_label) + 1
 
             st.divider()
-            page = st.radio("Menu", ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"])
+            page = st.radio(
+                "Menu",
+                ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"]
+            )
 
-            if st.button("Sair"):
+            if st.button("Sair", use_container_width=True):
                 st.session_state.user_id = None
                 st.session_state.username = None
                 st.rerun()
 
-        # Toast (15s)
-        if "msg_ok" in st.session_state:
+        # Toast de sucesso (15s)
+        if st.session_state.msg_ok:
             st.toast(st.session_state.msg_ok, icon="✅", duration=15)
-            del st.session_state.msg_ok
+            st.session_state.msg_ok = None
 
         repos.seed_default_categories(st.session_state.user_id)
 
         rows = repos.list_payments(st.session_state.user_id, month, year)
-        df = pd.DataFrame(rows, columns=[
-            "id","Descrição","Valor","Vencimento","Pago","Data pagamento",
-            "CategoriaID","Categoria","is_credit","installments",
-            "installment_index","credit_group"
-        ])
+        df = pd.DataFrame(
+            rows,
+            columns=[
+                "id", "Descrição", "Valor", "Vencimento", "Pago", "Data pagamento",
+                "CategoriaID", "Categoria", "is_credit", "installments",
+                "installment_index", "credit_group"
+            ]
+        )
 
         total = df["Valor"].sum() if not df.empty else 0
         pago = df[df["Pago"] == 1]["Valor"].sum() if not df.empty else 0
@@ -187,59 +206,121 @@ def screen_app():
 
             with st.expander("➕ Adicionar despesa", expanded=True):
                 with st.form("form_add_despesa", clear_on_submit=True):
-                    desc = st.text_input("Descrição")
-                    val = st.number_input("Valor (R$)", min_value=0.0)
-                    venc = st.date_input("Vencimento", value=date.today())
-                    cat_name = st.selectbox("Categoria", cat_names)
-                    parcelas = st.number_input("Parcelas", min_value=1, step=1, value=1)
+                    a1, a2, a3, a4, a5 = st.columns([3, 1, 1.3, 2, 1])
+
+                    desc = a1.text_input("Descrição")
+                    val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0)
+                    venc = a3.date_input("Vencimento", value=date.today(), format="DD/MM/YYYY")
+                    cat_name = a4.selectbox("Categoria", cat_names)
+                    parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1)
+
                     submitted = st.form_submit_button("Adicionar")
 
             if submitted:
-                cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
-                repos.add_payment(
-                    st.session_state.user_id,
-                    desc,
-                    val,
-                    str(venc),
-                    month,
-                    year,
-                    cid,
-                    is_credit=1 if parcelas > 1 else 0,
-                    installments=parcelas
-                )
-                st.session_state.msg_ok = "Despesa cadastrada com sucesso!"
-                st.rerun()
+                if not desc.strip():
+                    st.warning("Informe a descrição da despesa.")
+                elif val <= 0:
+                    st.warning("Informe um valor maior que zero.")
+                else:
+                    try:
+                        cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
+
+                        repos.add_payment(
+                            st.session_state.user_id,
+                            desc.strip(),
+                            float(val),
+                            str(venc),
+                            month,
+                            year,
+                            cid,
+                            is_credit=1 if parcelas > 1 else 0,
+                            installments=int(parcelas)
+                        )
+
+                        st.session_state.msg_ok = "Despesa cadastrada com sucesso!"
+                        st.rerun()
+
+                    except Exception:
+                        st.error("❌ Não foi possível cadastrar a despesa.")
 
             st.divider()
 
-            for r in rows:
-                pid, desc_r, amount, due, paid, _, _, cat_name_r, *_ = r
-                a, b, c, d, e, f = st.columns([4,1,2,1,1,1])
-                a.write(desc_r)
-                b.write(fmt_brl(amount))
-                c.write(format_date_br(due))
+            if df.empty:
+                st.info("Nenhuma despesa cadastrada.")
+            else:
+                for r in rows:
+                    pid, desc_r, amount, due, paid, _, _, cat_name_r, *_ = r
 
-                if f.button("✏️ Editar", key=f"edit_{pid}"):
-                    st.session_state.edit_id = pid
-                    st.rerun()
+                    a, b, c, d, e, f = st.columns([4, 1.2, 1.8, 1.2, 1.2, 1])
 
-                if st.session_state.edit_id == pid:
-                    with st.form(f"edit_{pid}"):
-                        n_desc = st.text_input("Descrição", value=desc_r)
-                        salvar = st.form_submit_button("Salvar")
+                    a.write(f"**{desc_r}**" + (f"  \n🏷️ {cat_name_r}" if cat_name_r else ""))
+                    b.write(fmt_brl(amount))
+                    c.write(format_date_br(due))
+                    d.write("✅ Paga" if paid else "🕓 Em aberto")
 
-                    if salvar:
-                        repos.update_payment(
-                            st.session_state.user_id,
-                            pid,
-                            n_desc,
-                            amount,
-                            due,
-                            None
-                        )
-                        st.session_state.edit_id = None
-                        st.session_state.msg_ok = "Despesa atualizada com sucesso!"
+                    if not paid:
+                        if e.button("Marcar como paga", key=f"pay_{pid}"):
+                            repos.mark_paid(st.session_state.user_id, pid, True)
+                            st.rerun()
+                    else:
+                        if e.button("Desfazer", key=f"unpay_{pid}"):
+                            repos.mark_paid(st.session_state.user_id, pid, False)
+                            st.rerun()
+
+                    if f.button("✏️ Editar", key=f"edit_{pid}"):
+                        st.session_state.edit_id = pid
                         st.rerun()
+
+                    if f.button("Excluir", key=f"del_{pid}"):
+                        repos.delete_payment(st.session_state.user_id, pid)
+                        st.rerun()
+
+                    if st.session_state.edit_id == pid:
+                        with st.form(f"edit_form_{pid}", clear_on_submit=False):
+                            n_desc = st.text_input("Descrição", value=desc_r)
+                            n_val = st.number_input("Valor", value=float(amount), step=10.0)
+                            n_venc = st.date_input(
+                                "Vencimento",
+                                value=datetime.fromisoformat(due).date()
+                            )
+
+                            cats2 = repos.list_categories(st.session_state.user_id)
+                            cat_map2 = {name: cid for cid, name in cats2}
+                            cat_names2 = ["(Sem categoria)"] + list(cat_map2.keys())
+                            current_cat = cat_name_r if cat_name_r in cat_map2 else "(Sem categoria)"
+                            n_cat_name = st.selectbox(
+                                "Categoria",
+                                cat_names2,
+                                index=cat_names2.index(current_cat)
+                            )
+
+                            col1, col2 = st.columns(2)
+                            salvar = col1.form_submit_button("Salvar")
+                            cancelar = col2.form_submit_button("Cancelar")
+
+                        if salvar:
+                            cid2 = None if n_cat_name == "(Sem categoria)" else cat_map2[n_cat_name]
+                            repos.update_payment(
+                                st.session_state.user_id,
+                                pid,
+                                n_desc,
+                                n_val,
+                                str(n_venc),
+                                cid2
+                            )
+                            st.session_state.edit_id = None
+                            st.session_state.msg_ok = "Despesa atualizada com sucesso!"
+                            st.rerun()
+
+                        if cancelar:
+                            st.session_state.edit_id = None
+                            st.rerun()
+
+        elif page == "📊 Dashboard":
+            st.subheader("📊 Dashboard")
+            if not df.empty:
+                fig = px.pie(df, names="Categoria", values="Valor")
+                st.plotly_chart(fig, use_container_width=True)
 
         elif page == "🏷️ Categorias":
             st.subheader("🏷️ Categorias")
@@ -249,15 +330,24 @@ def screen_app():
                 submitted_cat = st.form_submit_button("Adicionar")
 
             if submitted_cat:
-                repos.create_category(st.session_state.user_id, new_cat)
-                st.session_state.msg_ok = "Categoria cadastrada com sucesso!"
-                st.rerun()
+                if not new_cat.strip():
+                    st.warning("Informe o nome da categoria.")
+                else:
+                    try:
+                        repos.create_category(st.session_state.user_id, new_cat.strip())
+                        st.session_state.msg_ok = "Categoria cadastrada com sucesso!"
+                        st.rerun()
+                    except ValueError as e:
+                        st.error(str(e))
+                    except Exception:
+                        st.error("❌ Não foi possível cadastrar a categoria.")
 
-        elif page == "📊 Dashboard":
-            st.subheader("📊 Dashboard")
-            if not df.empty:
-                fig = px.pie(df, names="Categoria", values="Valor")
-                st.plotly_chart(fig, use_container_width=True)
+            for cid, name in repos.list_categories(st.session_state.user_id):
+                a, b = st.columns([4, 1])
+                a.write(name)
+                if b.button("Excluir", key=f"cat_{cid}"):
+                    repos.delete_category(st.session_state.user_id, cid)
+                    st.rerun()
 
         elif page == "💰 Planejamento":
             st.subheader("💰 Planejamento")
@@ -269,7 +359,7 @@ def screen_app():
                 st.rerun()
 
     except Exception:
-        st.error("❌ Ocorreu um erro inesperado.")
+        st.error("❌ Ocorreu um erro inesperado. Tente novamente.")
         st.stop()
 
 # ================= ROUTER =================
