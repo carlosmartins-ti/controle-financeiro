@@ -279,28 +279,49 @@ def screen_app():
                     st.rerun()
 
                 if st.session_state.edit_id == pid:
-                    with st.form(f"edit_form_{pid}"):
+                    with st.form(f"edit_form_{pid}", clear_on_submit=False):
                         n_desc = st.text_input("Descrição", value=desc)
                         n_val = st.number_input("Valor", value=float(amount), step=10.0)
-                        n_venc = st.date_input("Vencimento", value=datetime.fromisoformat(due).date())
+                        n_venc = st.date_input(
+                            "Vencimento",
+                            value=datetime.fromisoformat(due).date()
+        )
 
-                        salvar = st.form_submit_button("Salvar")
-                        cancelar = st.form_submit_button("Cancelar")
+        # 🔹 categorias (igual ao adicionar)
+        cats = repos.list_categories(st.session_state.user_id)
+        cat_map = {name: cid for cid, name in cats}
+        cat_names = ["(Sem categoria)"] + list(cat_map.keys())
 
-                    if salvar:
-                        repos.update_payment(
-                            st.session_state.user_id,
-                            pid,
-                            n_desc,
-                            n_val,
-                            str(n_venc)
-                        )
-                        st.session_state.edit_id = None
-                        st.rerun()
+        current_cat = cat_name if cat_name in cat_map else "(Sem categoria)"
+        n_cat_name = st.selectbox(
+            "Categoria",
+            cat_names,
+            index=cat_names.index(current_cat)
+        )
 
-                    if cancelar:
-                        st.session_state.edit_id = None
-                        st.rerun()
+        col1, col2 = st.columns(2)
+        salvar = col1.form_submit_button("Salvar")
+        cancelar = col2.form_submit_button("Cancelar")
+
+    if salvar:
+        cid = None if n_cat_name == "(Sem categoria)" else cat_map[n_cat_name]
+
+        repos.update_payment(
+            st.session_state.user_id,
+            pid,
+            n_desc,
+            n_val,
+            str(n_venc),
+            cid   # ← só isso a mais
+        )
+
+        st.session_state.edit_id = None
+        st.rerun()
+
+    if cancelar:
+        st.session_state.edit_id = None
+        st.rerun()
+
 
     elif page == "📊 Dashboard":
         st.subheader("📊 Dashboard")
