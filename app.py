@@ -52,7 +52,7 @@ def screen_auth():
     st.title("💳 Controle Financeiro")
 
     components.html(
-        """
+        '''
         <div style="
             background: linear-gradient(135deg, #1f2937, #111827);
             border-radius: 12px;
@@ -74,7 +74,7 @@ def screen_auth():
                 📧 <a href="mailto:cr954479@gmail.com" style="color:#60a5fa">cr954479@gmail.com</a>
             </div>
         </div>
-        """,
+        ''',
         height=170
     )
 
@@ -228,9 +228,12 @@ def screen_app():
 
         st.divider()
 
-        if not df.empty:
+        if df.empty:
+            st.info("Nenhuma despesa cadastrada.")
+        else:
             for r in rows:
                 pid, desc, amount, due, paid, _, _, cat_name, *_ = r
+
                 a, b, c, d, e, f = st.columns([4, 1.2, 1.8, 1.2, 1.2, 1])
 
                 a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
@@ -238,8 +241,21 @@ def screen_app():
                 c.write(format_date_br(due))
                 d.write("✅ Paga" if paid else "🕓 Em aberto")
 
+                if not paid:
+                    if e.button("Marcar como paga", key=f"pay_{pid}"):
+                        repos.mark_paid(st.session_state.user_id, pid, True)
+                        st.rerun()
+                else:
+                    if e.button("Desfazer", key=f"unpay_{pid}"):
+                        repos.mark_paid(st.session_state.user_id, pid, False)
+                        st.rerun()
+
                 if f.button("✏️ Editar", key=f"edit_{pid}"):
                     st.session_state.edit_id = pid
+                    st.rerun()
+
+                if f.button("Excluir", key=f"del_{pid}"):
+                    repos.delete_payment(st.session_state.user_id, pid)
                     st.rerun()
 
                 if st.session_state.edit_id == pid:
@@ -251,16 +267,15 @@ def screen_app():
                             value=datetime.fromisoformat(due).date()
                         )
 
-                        cats_edit = repos.list_categories(st.session_state.user_id)
-                        cat_map_edit = {name: cid for cid, name in cats_edit}
-                        cat_names_edit = ["(Sem categoria)"] + list(cat_map_edit.keys())
-
-                        current_cat = cat_name if cat_name in cat_map_edit else "(Sem categoria)"
-
+                        # --- CATEGORIA NO EDITAR (ÚNICA ADIÇÃO) ---
+                        cats = repos.list_categories(st.session_state.user_id)
+                        cat_map = {name: cid for cid, name in cats}
+                        cat_names = ["(Sem categoria)"] + list(cat_map.keys())
+                        current_cat = cat_name if cat_name in cat_map else "(Sem categoria)"
                         n_cat_name = st.selectbox(
                             "Categoria",
-                            cat_names_edit,
-                            index=cat_names_edit.index(current_cat)
+                            cat_names,
+                            index=cat_names.index(current_cat)
                         )
 
                         col1, col2 = st.columns(2)
@@ -268,7 +283,7 @@ def screen_app():
                         cancelar = col2.form_submit_button("Cancelar")
 
                     if salvar:
-                        cid = None if n_cat_name == "(Sem categoria)" else cat_map_edit[n_cat_name]
+                        cid = None if n_cat_name == "(Sem categoria)" else cat_map[n_cat_name]
                         repos.update_payment(
                             st.session_state.user_id,
                             pid,
@@ -283,6 +298,34 @@ def screen_app():
                     if cancelar:
                         st.session_state.edit_id = None
                         st.rerun()
+
+    elif page == "📊 Dashboard":
+        st.subheader("📊 Dashboard")
+        if not df.empty:
+            fig = px.pie(df, names="Categoria", values="Valor")
+            st.plotly_chart(fig, use_container_width=True)
+
+    elif page == "🏷️ Categorias":
+        st.subheader("🏷️ Categorias")
+        new_cat = st.text_input("Nova categoria")
+        if st.button("Adicionar"):
+            repos.create_category(st.session_state.user_id, new_cat)
+            st.rerun()
+
+        for cid, name in repos.list_categories(st.session_state.user_id):
+            a, b = st.columns([4, 1])
+            a.write(name)
+            if b.button("Excluir", key=f"cat_{cid}"):
+                repos.delete_category(st.session_state.user_id, cid)
+                st.rerun()
+
+    elif page == "💰 Planejamento":
+        st.subheader("💰 Planejamento")
+        renda_v = st.number_input("Renda", value=float(renda))
+        meta_v = st.number_input("Meta de gastos", value=float(budget["expense_goal"]))
+        if st.button("Salvar"):
+            repos.upsert_budget(st.session_state.user_id, month, year, renda_v, meta_v)
+            st.success("Planejamento salvo.")
 
 # ================= ROUTER =================
 if st.session_state.user_id is None:
