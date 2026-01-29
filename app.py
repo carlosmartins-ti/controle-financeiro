@@ -67,14 +67,36 @@ def screen_auth():
 
     st.markdown(
     """
-    <div class="auth-box">
-        🔐 <b>Autenticação e autoria do projeto</b><br>
-        Aplicação desenvolvida por <b>Carlos Martins</b>.<br>
-        📧 <a href="mailto:cr954479@gmail.com">cr954479@gmail.com</a>
+    <div style="
+        background: linear-gradient(135deg, #1f2937, #111827);
+        border-radius: 10px;
+        padding: 16px;
+        margin-top: 12px;
+        color: #e5e7eb;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        max-width: 520px;
+    ">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 22px;">🔐</span>
+            <b style="font-size: 16px;">Autenticação e autoria do projeto</b>
+        </div>
+
+        <div style="margin-top: 10px; font-size: 14px; line-height: 1.5;">
+            Aplicação desenvolvida por <b>Carlos Martins</b>.<br>
+            Para dúvidas, sugestões ou suporte técnico:
+        </div>
+
+        <div style="margin-top: 8px;">
+            📧 <a href="mailto:cr954479@gmail.com"
+                 style="color:#60a5fa; font-weight:600; text-decoration:none;">
+                cr954479@gmail.com
+            </a>
+        </div>
     </div>
     """,
     unsafe_allow_html=True
 )
+
 
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
