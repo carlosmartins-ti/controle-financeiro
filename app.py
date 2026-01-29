@@ -52,7 +52,7 @@ def screen_auth():
     st.title("💳 Controle Financeiro")
 
     components.html(
-        '''
+        """
         <div style="
             background: linear-gradient(135deg, #1f2937, #111827);
             border-radius: 12px;
@@ -74,7 +74,7 @@ def screen_auth():
                 📧 <a href="mailto:cr954479@gmail.com" style="color:#60a5fa">cr954479@gmail.com</a>
             </div>
         </div>
-        ''',
+        """,
         height=170
     )
 
@@ -243,6 +243,52 @@ def screen_app():
                     except Exception:
                         st.error("❌ Não foi possível cadastrar a despesa.")
 
+            # -------- FATURA DO CARTÃO (UNIR + DESFAZER) --------
+            card_cat_ids = [cid for cid, name in cats if name and "cart" in str(name).lower()]
+            credit_rows = [r for r in rows if (r[6] in card_cat_ids)]
+            if credit_rows:
+                open_credit = [r for r in credit_rows if r[4] == 0]
+                total_fatura = sum(float(r[2]) for r in open_credit) if open_credit else 0.0
+
+                st.divider()
+                st.subheader("💳 Fatura do cartão")
+
+                cA, cB, cC = st.columns([2.2, 1.2, 2.6])
+                cA.metric("Total em aberto", fmt_brl(total_fatura))
+
+                # Pagar / Desfazer pagamento da fatura (marcar tudo pago/não pago)
+                if open_credit:
+                    if cB.button("💰 Pagar fatura do cartão", key="pay_card"):
+                        repos.mark_credit_invoice_paid(st.session_state.user_id, month, year)
+                        st.session_state.msg_ok = "Fatura do cartão marcada como paga!"
+                        st.rerun()
+                else:
+                    if cB.button("🔄 Desfazer pagamento da fatura", key="unpay_card"):
+                        repos.unmark_credit_invoice_paid(st.session_state.user_id, month, year)
+                        st.session_state.msg_ok = "Pagamento da fatura desfeito!"
+                        st.rerun()
+
+                # Unir fatura (apenas agrupa os lançamentos selecionados)
+                if open_credit:
+                    cC.markdown("**Unir lançamentos (selecionar itens em aberto):**")
+                    selected_ids = []
+                    for r in open_credit:
+                        pid, desc_r, amount, due, paid, _, _, cat_name_r, *_ = r
+                        chk_key = f"merge_{pid}"
+                        if chk_key not in st.session_state:
+                            st.session_state[chk_key] = False
+                        if cC.checkbox(f"{desc_r} — {fmt_brl(amount)} — {format_date_br(due)}", key=chk_key):
+                            selected_ids.append(pid)
+
+                    btn_unir = cC.button("🔗 Unir selecionados", key="btn_merge_credit")
+                    if btn_unir:
+                        if len(selected_ids) < 2:
+                            st.warning("Selecione pelo menos 2 lançamentos para unir.")
+                        else:
+                            repos.merge_credit_group(st.session_state.user_id, selected_ids)
+                            st.session_state.msg_ok = "Lançamentos unidos com sucesso!"
+                            st.rerun()
+
             st.divider()
 
             if df.empty:
@@ -261,10 +307,12 @@ def screen_app():
                     if not paid:
                         if e.button("Marcar como paga", key=f"pay_{pid}"):
                             repos.mark_paid(st.session_state.user_id, pid, True)
+                            st.session_state.msg_ok = "Despesa marcada como paga!"
                             st.rerun()
                     else:
                         if e.button("Desfazer", key=f"unpay_{pid}"):
                             repos.mark_paid(st.session_state.user_id, pid, False)
+                            st.session_state.msg_ok = "Pagamento desfeito!"
                             st.rerun()
 
                     if f.button("✏️ Editar", key=f"edit_{pid}"):
@@ -273,6 +321,7 @@ def screen_app():
 
                     if f.button("Excluir", key=f"del_{pid}"):
                         repos.delete_payment(st.session_state.user_id, pid)
+                        st.session_state.msg_ok = "Despesa excluída!"
                         st.rerun()
 
                     if st.session_state.edit_id == pid:
@@ -347,6 +396,7 @@ def screen_app():
                 a.write(name)
                 if b.button("Excluir", key=f"cat_{cid}"):
                     repos.delete_category(st.session_state.user_id, cid)
+                    st.session_state.msg_ok = "Categoria excluída!"
                     st.rerun()
 
         elif page == "💰 Planejamento":
