@@ -50,7 +50,7 @@ if "username" not in st.session_state:
 if "edit_id" not in st.session_state:
     st.session_state.edit_id = None
 
-# ================= AUTH (ORIGINAL) =================
+# ================= AUTH =================
 def screen_auth():
     st.title("💳 Controle Financeiro")
 
@@ -143,6 +143,9 @@ def screen_app():
 
     with st.sidebar:
         st.markdown(f"**Usuário:** {st.session_state.username}")
+        if is_admin():
+            st.caption("🔑 Administrador")
+
         today = date.today()
         month_label = st.selectbox("Mês", MESES, index=today.month - 1)
         year = st.selectbox("Ano", list(range(today.year - 2, today.year + 3)), index=2)
@@ -159,6 +162,7 @@ def screen_app():
             st.session_state.username = None
             st.rerun()
 
+    # Toast de sucesso (15s)
     if "msg_ok" in st.session_state:
         st.toast(st.session_state.msg_ok, icon="✅", duration=15)
         del st.session_state.msg_ok
@@ -169,9 +173,9 @@ def screen_app():
     df = pd.DataFrame(
         rows,
         columns=[
-            "id","Descrição","Valor","Vencimento","Pago","Data pagamento",
-            "CategoriaID","Categoria","is_credit","installments",
-            "installment_index","credit_group"
+            "id", "Descrição", "Valor", "Vencimento", "Pago", "Data pagamento",
+            "CategoriaID", "Categoria", "is_credit", "installments",
+            "installment_index", "credit_group"
         ]
     )
 
@@ -194,7 +198,7 @@ def screen_app():
 
     st.divider()
 
-    # ================= DESPESAS (RESTAURADA) =================
+    # ================= DESPESAS =================
     if page == "🧾 Despesas":
         st.subheader("🧾 Despesas")
 
@@ -208,27 +212,27 @@ def screen_app():
 
                 desc = a1.text_input("Descrição")
                 val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0)
-                venc = a3.date_input("Vencimento", value=date.today())
+                venc = a3.date_input("Vencimento", value=date.today(), format="DD/MM/YYYY")
                 cat_name = a4.selectbox("Categoria", cat_names)
                 parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1)
 
                 submitted = st.form_submit_button("Adicionar")
 
-        if submitted:
-            cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
-            repos.add_payment(
-                st.session_state.user_id,
-                desc,
-                val,
-                str(venc),
-                month,
-                year,
-                cid,
-                is_credit=1 if parcelas > 1 else 0,
-                installments=parcelas
-            )
-            st.session_state.msg_ok = "Despesa cadastrada com sucesso!"
-            st.rerun()
+            if submitted:
+                cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
+                repos.add_payment(
+                    st.session_state.user_id,
+                    desc,
+                    val,
+                    str(venc),
+                    month,
+                    year,
+                    cid,
+                    is_credit=1 if parcelas > 1 else 0,
+                    installments=parcelas
+                )
+                st.session_state.msg_ok = "Despesa adicionada com sucesso!"
+                st.rerun()
 
         st.divider()
 
@@ -236,11 +240,11 @@ def screen_app():
             st.info("Nenhuma despesa cadastrada.")
         else:
             for r in rows:
-                pid, desc, amount, due, paid, *_ = r
+                pid, desc, amount, due, paid, _, _, cat_name, *_ = r
 
-                a, b, c, d, e, f = st.columns([4,1.2,1.8,1.2,1.2,1])
+                a, b, c, d, e, f = st.columns([4, 1.2, 1.8, 1.2, 1.2, 1])
 
-                a.write(f"**{desc}**")
+                a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
                 b.write(fmt_brl(amount))
                 c.write(format_date_br(due))
                 d.write("✅ Paga" if paid else "🕓 Em aberto")
@@ -260,35 +264,29 @@ def screen_app():
                     st.session_state.edit_id = pid
                     st.rerun()
 
+                if f.button("Excluir", key=f"del_{pid}"):
+                    repos.delete_payment(st.session_state.user_id, pid)
+                    st.session_state.msg_ok = "Despesa excluída."
+                    st.rerun()
+
                 if st.session_state.edit_id == pid:
                     with st.form(f"edit_form_{pid}", clear_on_submit=False):
                         n_desc = st.text_input("Descrição", value=desc)
                         n_val = st.number_input("Valor", value=float(amount), step=10.0)
-                        n_venc = st.date_input("Vencimento", value=datetime.fromisoformat(due).date())
-
-                        salvar = st.form_submit_button("Salvar")
-
-                    if salvar:
-                        repos.update_payment(
-                            st.session_state.user_id,
-                            pid,
-                            n_desc,
-                            n_val,
-                            str(n_venc),
-                            None
+                        n_venc = st.date_input(
+                            "Vencimento",
+                            value=datetime.fromisoformat(due).date()
                         )
-                        st.session_state.edit_id = None
-                        st.session_state.msg_ok = "Despesa atualizada com sucesso!"
-                        st.rerun()
 
-    elif page == "🏷️ Categorias":
-        st.subheader("🏷️ Categorias")
+                        cats2 = repos.list_categories(st.session_state.user_id)
+                        cat_map2 = {name: cid for cid, name in cats2}
+                        cat_names2 = ["(Sem categoria)"] + list(cat_map2.keys())
+                        current_cat = cat_name if cat_name in cat_map2 else "(Sem categoria)"
+                        n_cat_name = st.selectbox(
+                            "Categoria",
+                            cat_names2,
+                            index=cat_names2.index(current_cat)
+                        )
 
-        with st.form("form_categoria", clear_on_submit=True):
-            new_cat = st.text_input("Nova categoria")
-            submitted_cat = st.form_submit_button("Adicionar")
-
-        if submitted_cat:
-            repos.create_category(st.session_state.user_id, new_cat)
-            st.session_state.msg_ok = "Categoria cadastrada com sucesso!"
-         
+                        col1, col2 = st.columns(2)
+     
