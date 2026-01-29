@@ -294,3 +294,28 @@ def upsert_budget(user_id: int, month: int, year: int, income: float, expense_go
     )
     conn.commit()
     conn.close()
+    # -------------------- Unir Fatura Cartão --------------------
+def merge_credit_group(user_id: int, payment_ids: list[int]):
+    if not payment_ids:
+        return
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # gera um novo grupo (compatível com seu schema atual)
+    cur.execute("SELECT COALESCE(MAX(credit_group), 0) + 1 FROM payments")
+    new_group = cur.fetchone()[0]
+
+    for pid in payment_ids:
+        cur.execute(
+            """
+            UPDATE payments
+            SET credit_group = ?, is_credit = 1
+            WHERE user_id = ? AND id = ?
+            """,
+            (new_group, user_id, pid)
+        )
+
+    conn.commit()
+    conn.close()
+
