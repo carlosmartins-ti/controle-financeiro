@@ -310,10 +310,12 @@ def screen_app():
 
     elif page == "🏷️ Categorias":
         st.subheader("🏷️ Categorias")
-        new_cat = st.text_input("Nova categoria")
-        if st.button("Adicionar"):
-            repos.create_category(st.session_state.user_id, new_cat)
-            st.rerun()
+        with st.form("form_add_categoria", clear_on_submit=True):
+    new_cat = st.text_input("Nova categoria")
+    submitted = st.form_submit_button("Adicionar")
+        if submitted:
+    repos.create_category(st.session_state.user_id, new_cat)
+    st.rerun()
 
         for cid, name in repos.list_categories(st.session_state.user_id):
             a, b = st.columns([4, 1])
