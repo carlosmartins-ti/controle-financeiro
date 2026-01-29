@@ -275,9 +275,6 @@ def screen_app():
         if df.empty:
             st.info("Nenhuma despesa cadastrada.")
         else:
-if df.empty:
-    st.info("Nenhuma despesa cadastrada.")
-else:
     # >>> CONTROLE DE EDIÇÃO E UNIÃO DE FATURA
     if "edit_id" not in st.session_state:
         st.session_state.edit_id = None
