@@ -97,7 +97,6 @@ def screen_auth():
     unsafe_allow_html=True
 )
 
-
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
     # ---------- LOGIN ----------
