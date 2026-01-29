@@ -289,4 +289,67 @@ def screen_app():
                         )
 
                         col1, col2 = st.columns(2)
-     
+                        salvar = col1.form_submit_button("Salvar")
+                        cancelar = col2.form_submit_button("Cancelar")
+
+                    if salvar:
+                        cid = None if n_cat_name == "(Sem categoria)" else cat_map2[n_cat_name]
+                        repos.update_payment(
+                            st.session_state.user_id,
+                            pid,
+                            n_desc,
+                            n_val,
+                            str(n_venc),
+                            cid
+                        )
+                        st.session_state.edit_id = None
+                        st.session_state.msg_ok = "Despesa atualizada com sucesso!"
+                        st.rerun()
+
+                    if cancelar:
+                        st.session_state.edit_id = None
+                        st.rerun()
+
+    elif page == "📊 Dashboard":
+        st.subheader("📊 Dashboard")
+        if not df.empty:
+            fig = px.pie(df, names="Categoria", values="Valor")
+            st.plotly_chart(fig, use_container_width=True)
+
+    elif page == "🏷️ Categorias":
+        st.subheader("🏷️ Categorias")
+
+        with st.form("form_categoria", clear_on_submit=True):
+            new_cat = st.text_input("Nova categoria")
+            submitted = st.form_submit_button("Adicionar")
+
+        if submitted and new_cat.strip():
+            repos.create_category(
+                st.session_state.user_id,
+                new_cat.strip()
+            )
+            st.session_state.msg_ok = "Categoria adicionada com sucesso!"
+            st.rerun()
+
+        for cid, name in repos.list_categories(st.session_state.user_id):
+            a, b = st.columns([4, 1])
+            a.write(name)
+            if b.button("Excluir", key=f"cat_{cid}"):
+                repos.delete_category(st.session_state.user_id, cid)
+                st.session_state.msg_ok = "Categoria excluída."
+                st.rerun()
+    
+    elif page == "💰 Planejamento":
+        st.subheader("💰 Planejamento")
+        renda_v = st.number_input("Renda", value=float(renda))
+        meta_v = st.number_input("Meta de gastos", value=float(budget["expense_goal"]))
+        if st.button("Salvar"):
+            repos.upsert_budget(st.session_state.user_id, month, year, renda_v, meta_v)
+            st.session_state.msg_ok = "Planejamento salvo com sucesso."
+            st.rerun()
+
+# ================= ROUTER =================
+if st.session_state.user_id is None:
+    screen_auth()
+else:
+    screen_app()
