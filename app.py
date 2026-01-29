@@ -306,13 +306,13 @@ def screen_app():
             st.plotly_chart(fig, use_container_width=True)
 
     elif page == "🏷️ Categorias":
-    st.subheader("🏷️ Categorias")
+       st.subheader("🏷️ Categorias")
 
-    with st.form("form_categoria", clear_on_submit=True):
-        new_cat = st.text_input("Nova categoria")
-        submitted = st.form_submit_button("Adicionar")
+       with st.form("form_categoria", clear_on_submit=True):
+          new_cat = st.text_input("Nova categoria")
+          submitted = st.form_submit_button("Adicionar")
 
-    if submitted and new_cat.strip():
+       if submitted and new_cat.strip():
         repos.create_category(
             st.session_state.user_id,
             new_cat.strip()
@@ -320,10 +320,10 @@ def screen_app():
         st.success("Categoria adicionada!")
         st.rerun()
 
-    for cid, name in repos.list_categories(st.session_state.user_id):
-        a, b = st.columns([4, 1])
-        a.write(name)
-        if b.button("Excluir", key=f"cat_{cid}"):
+      for cid, name in repos.list_categories(st.session_state.user_id):
+         a, b = st.columns([4, 1])
+         a.write(name)
+         if b.button("Excluir", key=f"cat_{cid}"):
             repos.delete_category(st.session_state.user_id, cid)
             st.rerun()
 
