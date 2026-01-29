@@ -109,16 +109,13 @@ def screen_auth():
         a = st.text_input("Resposta", key="signup_answer")
 
         if st.button("Criar conta", key="btn_signup"):
-            try:
-                create_user(u, p, q, a)
-                uid = authenticate(u, p)
-                st.session_state.user_id = uid
-                st.session_state.username = u.strip().lower()
-                repos.seed_default_categories(uid)
-                st.success("Conta criada com sucesso.")
-                st.rerun()
-            except ValueError as e:
-                st.error(str(e))
+            create_user(u, p, q, a)
+            uid = authenticate(u, p)
+            st.session_state.user_id = uid
+            st.session_state.username = u.strip().lower()
+            repos.seed_default_categories(uid)
+            st.success("Conta criada com sucesso.")
+            st.rerun()
 
     with t3:
         u = st.text_input("Usuário", key="reset_user")
@@ -204,13 +201,11 @@ def screen_app():
         with st.expander("➕ Adicionar despesa", expanded=True):
             with st.form("form_add_despesa"):
                 a1, a2, a3, a4, a5 = st.columns([3, 1, 1.3, 2, 1])
-
                 desc = a1.text_input("Descrição")
                 val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0)
                 venc = a3.date_input("Vencimento", value=date.today(), format="DD/MM/YYYY")
                 cat_name = a4.selectbox("Categoria", cat_names)
                 parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1)
-
                 submitted = st.form_submit_button("Adicionar")
 
             if submitted:
@@ -234,19 +229,17 @@ def screen_app():
         if df.empty:
             st.info("Nenhuma despesa cadastrada.")
         else:
-            cartao_id = next((cid for cid, n in cats if n.lower() == "cartão de crédito"), None)
+            cartao_rows = [r for r in rows if r[7] and "cart" in r[7].lower()]
+            abertas = [r for r in cartao_rows if r[4] == 0]
+            total_cartao = sum(r[2] for r in abertas)
 
-            if cartao_id:
-                ids = [r[0] for r in rows if r[6] == cartao_id]
-                total_cartao = sum(r[2] for r in rows if r[6] == cartao_id)
-
+            if cartao_rows:
                 if st.button("💳 Unir fatura do Cartão de crédito"):
-                    if len(ids) > 1:
-                        repos.merge_credit_group(st.session_state.user_id, ids)
-                        st.success("Fatura do cartão unida com sucesso.")
-                        st.rerun()
-                    else:
-                        st.warning("Não há despesas suficientes no cartão.")
+                    repos.mark_credit_invoice_paid(
+                        st.session_state.user_id, month, year
+                    )
+                    st.success("Fatura do cartão paga.")
+                    st.rerun()
 
                 st.metric("💳 Total da fatura do cartão", fmt_brl(total_cartao))
 
