@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import date, datetime
+import time
+import streamlit.components.v1 as components
 
 from database import init_db
 from auth import authenticate, create_user, get_security_question, reset_password
@@ -36,22 +38,19 @@ def format_date_br(s):
     except:
         return ""
 
-def status_vencimento(due_date, paid):
-    if paid:
-        return "", ""
-    try:
-        d = datetime.fromisoformat(str(due_date)).date()
-    except:
-        return "", ""
-    today = date.today()
-    if d < today:
-        return "🔴 VENCIDA", "#ff4d4d"
-    if d == today:
-        return "🟡 VENCE HOJE", "#ffcc00"
-    return "", ""
-
 def is_admin():
     return st.session_state.username == ADMIN_USERNAME
+
+def flash(msg, kind="success", seconds=15):
+    box = st.empty()
+    if kind == "success":
+        box.success(msg)
+    elif kind == "warning":
+        box.warning(msg)
+    else:
+        box.error(msg)
+    time.sleep(seconds)
+    box.empty()
 
 # ================= SESSION =================
 for k in ["user_id", "username", "edit_id"]:
@@ -62,22 +61,39 @@ for k in ["user_id", "username", "edit_id"]:
 def screen_auth():
     st.title("💳 Controle Financeiro")
 
-    st.markdown(
-        """
-        <div class="auth-box">
-            🔐 <b>Autenticação e autoria do projeto</b><br>
-            Aplicação desenvolvida por <b>Carlos Martins</b><br>
-            📧 <a href="mailto:cr954479@gmail.com">cr954479@gmail.com</a>
+    components.html(
+        '''
+        <div style="
+            background: linear-gradient(135deg, #1f2937, #111827);
+            border-radius: 12px;
+            padding: 16px;
+            margin: 14px 0;
+            color: #e5e7eb;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+            font-family: system-ui;
+        ">
+            <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:22px">🔐</span>
+                <strong>Autenticação e autoria do projeto</strong>
+            </div>
+            <div style="margin-top:10px;font-size:14px">
+                Aplicação desenvolvida por <strong>Carlos Martins</strong>.<br>
+                Para dúvidas, sugestões ou suporte técnico:
+            </div>
+            <div style="margin-top:8px">
+                📧 <a href="mailto:cr954479@gmail.com" style="color:#60a5fa">cr954479@gmail.com</a>
+            </div>
         </div>
-        """,
-        unsafe_allow_html=True
+        ''',
+        height=170
     )
 
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
 
     with t1:
-        u = st.text_input("Usuário")
-        p = st.text_input("Senha", type="password")
+        u = st.text_input("Usuário", key="login_user")
+        p = st.text_input("Senha", type="password", key="login_pass")
+
         if st.button("Entrar"):
             uid = authenticate(u, p)
             if uid:
@@ -99,13 +115,16 @@ def screen_auth():
         a = st.text_input("Resposta")
 
         if st.button("Criar conta"):
-            create_user(u, p, q, a)
-            uid = authenticate(u, p)
-            st.session_state.user_id = uid
-            st.session_state.username = u.strip().lower()
-            repos.seed_default_categories(uid)
-            st.toast("Conta criada com sucesso ✅", duration=15)
-            st.rerun()
+            try:
+                create_user(u, p, q, a)
+                uid = authenticate(u, p)
+                st.session_state.user_id = uid
+                st.session_state.username = u.strip().lower()
+                repos.seed_default_categories(uid)
+                flash("Conta criada com sucesso!")
+                st.rerun()
+            except ValueError as e:
+                st.error(str(e))
 
     with t3:
         u = st.text_input("Usuário")
@@ -116,7 +135,7 @@ def screen_auth():
             np = st.text_input("Nova senha", type="password")
             if st.button("Redefinir senha"):
                 if reset_password(u, a, np):
-                    st.toast("Senha alterada com sucesso 🔐", duration=15)
+                    flash("Senha alterada com sucesso!")
                 else:
                     st.error("Resposta incorreta.")
 
@@ -125,19 +144,22 @@ def screen_app():
     repos.seed_default_categories(st.session_state.user_id)
 
     with st.sidebar:
-        st.markdown(f"**Usuário:** `{st.session_state.username}`")
+        st.markdown(f"**Usuário:** {st.session_state.username}")
         today = date.today()
-        month_label = st.selectbox("Mês", MESES, index=today.month - 1)
-        year = st.selectbox("Ano", list(range(today.year - 2, today.year + 3)), index=2)
+        month_label = st.selectbox("Mês", MESES, index=today.month-1)
+        year = st.selectbox("Ano", list(range(today.year-2, today.year+3)), index=2)
         month = MESES.index(month_label) + 1
+
         st.divider()
         page = st.radio("Menu", ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"])
+
         if st.button("Sair"):
             st.session_state.user_id = None
             st.session_state.username = None
             st.rerun()
 
     rows = repos.list_payments(st.session_state.user_id, month, year)
+
     df = pd.DataFrame(rows, columns=[
         "id","Descrição","Valor","Vencimento","Pago","Data pagamento",
         "CategoriaID","Categoria","is_credit","installments","installment_index","credit_group"
@@ -171,72 +193,74 @@ def screen_app():
         with st.expander("➕ Adicionar despesa", expanded=True):
             a1,a2,a3,a4,a5 = st.columns([3,1,1.3,2,1])
             desc = a1.text_input("Descrição")
-            val = a2.number_input("Valor", min_value=0.0, step=10.0)
+            val = a2.number_input("Valor (R$)", min_value=0.0)
             venc = a3.date_input("Vencimento", value=date.today(), format="DD/MM/YYYY")
             cat = a4.selectbox("Categoria", cat_names)
             parc = a5.number_input("Parcelas", min_value=1, value=1)
 
             if st.button("Adicionar"):
-                cid = None if cat == "(Sem categoria)" else cat_map[cat]
-                repos.add_payment(
-                    st.session_state.user_id, desc, val, str(venc),
-                    month, year, cid,
-                    is_credit=1 if parc > 1 else 0,
-                    installments=parc
-                )
-                st.toast("Despesa adicionada com sucesso 💸", duration=15)
-                st.rerun()
+                if not desc.strip():
+                    flash("Informe a descrição", "warning")
+                elif val <= 0:
+                    flash("Informe um valor maior que zero", "warning")
+                else:
+                    cid = None if cat == "(Sem categoria)" else cat_map[cat]
+                    repos.add_payment(
+                        st.session_state.user_id,
+                        desc, val, str(venc),
+                        month, year, cid,
+                        is_credit=1 if parc > 1 else 0,
+                        installments=parc
+                    )
+                    flash("Despesa adicionada com sucesso!")
+                    st.rerun()
 
-        st.divider()
-
-        # Fatura cartão
+        # -------- FATURA CARTÃO --------
         credit_rows = [r for r in rows if r[7] and "cart" in r[7].lower()]
         if credit_rows:
             open_credit = [r for r in credit_rows if r[4] == 0]
             total_fatura = sum(float(r[2]) for r in open_credit)
+
+            st.divider()
             st.subheader("💳 Fatura do cartão")
+            st.metric("Total em aberto", fmt_brl(total_fatura))
+
             if open_credit:
                 if st.button("💰 Pagar fatura"):
                     repos.mark_credit_invoice_paid(st.session_state.user_id, month, year)
-                    st.toast("Fatura paga com sucesso 💳", duration=15)
+                    flash("Fatura paga com sucesso!")
                     st.rerun()
             else:
                 if st.button("🔄 Desfazer pagamento"):
                     repos.unmark_credit_invoice_paid(st.session_state.user_id, month, year)
-                    st.toast("Pagamento da fatura desfeito", duration=15)
+                    flash("Pagamento da fatura desfeito")
                     st.rerun()
 
         st.divider()
 
         for r in rows:
-            pid, desc, val, due, paid, _, _, cat, *_ = r
+            pid, desc, amount, due, paid, _, _, cat, *_ = r
             a,b,c,d,e,f = st.columns([4,1.2,1.8,1.2,1.2,1])
 
             a.write(f"**{desc}**" + (f"  \n🏷️ {cat}" if cat else ""))
-            b.write(fmt_brl(val))
-
-            status, color = status_vencimento(due, paid)
-            c.markdown(
-                f"<span style='color:{color}'>{format_date_br(due)} {status}</span>",
-                unsafe_allow_html=True
-            )
-
+            b.write(fmt_brl(amount))
+            c.write(format_date_br(due))
             d.write("✅ Paga" if paid else "🕓 Em aberto")
 
             if not paid:
-                if e.button("Pagar", key=f"pay_{pid}"):
+                if e.button("Marcar como paga", key=f"pay_{pid}"):
                     repos.mark_paid(st.session_state.user_id, pid, True)
-                    st.toast("Despesa paga ✅", duration=15)
+                    flash("Despesa marcada como paga")
                     st.rerun()
             else:
                 if e.button("Desfazer", key=f"unpay_{pid}"):
                     repos.mark_paid(st.session_state.user_id, pid, False)
-                    st.toast("Pagamento desfeito", duration=15)
+                    flash("Pagamento desfeito")
                     st.rerun()
 
             if f.button("Excluir", key=f"del_{pid}"):
                 repos.delete_payment(st.session_state.user_id, pid)
-                st.toast("Despesa excluída 🗑️", duration=15)
+                flash("Despesa excluída")
                 st.rerun()
 
     # ================= DASHBOARD =================
@@ -251,16 +275,22 @@ def screen_app():
     elif page == "🏷️ Categorias":
         new_cat = st.text_input("Nova categoria")
         if st.button("Adicionar categoria"):
-            repos.create_category(st.session_state.user_id, new_cat)
-            st.toast("Categoria adicionada 🏷️", duration=15)
-            st.rerun()
+            if not new_cat.strip():
+                flash("Informe o nome da categoria", "warning")
+            else:
+                try:
+                    repos.create_category(st.session_state.user_id, new_cat)
+                    flash("Categoria adicionada com sucesso!")
+                    st.rerun()
+                except:
+                    flash("Categoria já cadastrada", "error")
 
         for cid, name in repos.list_categories(st.session_state.user_id):
             a,b = st.columns([4,1])
             a.write(name)
             if b.button("Excluir", key=f"cat_{cid}"):
                 repos.delete_category(st.session_state.user_id, cid)
-                st.toast("Categoria excluída", duration=15)
+                flash("Categoria excluída")
                 st.rerun()
 
     # ================= PLANEJAMENTO =================
@@ -269,7 +299,7 @@ def screen_app():
         meta_v = st.number_input("Meta de gastos", value=float(budget["expense_goal"]))
         if st.button("Salvar planejamento"):
             repos.upsert_budget(st.session_state.user_id, month, year, renda_v, meta_v)
-            st.toast("Planejamento salvo 📊", duration=15)
+            flash("Planejamento salvo com sucesso")
 
 # ================= ROUTER =================
 if st.session_state.user_id is None:
