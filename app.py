@@ -275,86 +275,90 @@ def screen_app():
         if df.empty:
             st.info("Nenhuma despesa cadastrada.")
         else:
-            # >>> CONTROLE DE EDIÇÃO E UNIÃO DE FATURA
-if "edit_id" not in st.session_state:
-    st.session_state.edit_id = None
+if df.empty:
+    st.info("Nenhuma despesa cadastrada.")
+else:
+    # >>> CONTROLE DE EDIÇÃO E UNIÃO DE FATURA
+    if "edit_id" not in st.session_state:
+        st.session_state.edit_id = None
 
-if "to_merge" not in st.session_state:
-    st.session_state.to_merge = []
-
-if st.button("🔗 Unir fatura"):
-    if len(st.session_state.to_merge) > 1:
-        repos.merge_credit_group(
-            st.session_state.user_id,
-            st.session_state.to_merge
-        )
-        st.success("Faturas unidas com sucesso.")
+    if "to_merge" not in st.session_state:
         st.session_state.to_merge = []
-        st.rerun()
-    else:
-        st.warning("Selecione pelo menos 2 despesas.")
 
-# >>> LISTAGEM DE DESPESAS
-for r in rows:
-    pid, desc, amount, due, paid, _, _, cat_name, *_ = r
-
-    a0, a, b, c, d, e, f = st.columns([0.4, 3.6, 1.2, 1.8, 1.2, 1, 1])
-
-    # checkbox para unir fatura
-    if a0.checkbox("", key=f"chk_{pid}"):
-        if pid not in st.session_state.to_merge:
-            st.session_state.to_merge.append(pid)
-
-    a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
-    b.write(fmt_brl(amount))
-    c.write(format_date_br(due))
-    d.write("✅ Paga" if paid else "🕓 Em aberto")
-
-    if not paid:
-        if e.button("Marcar como paga", key=f"pay_{pid}"):
-            repos.mark_paid(st.session_state.user_id, pid, True)
-            st.rerun()
-    else:
-        if e.button("Desfazer", key=f"unpay_{pid}"):
-            repos.mark_paid(st.session_state.user_id, pid, False)
-            st.rerun()
-
-    if f.button("✏️ Editar", key=f"edit_{pid}"):
-        st.session_state.edit_id = pid
-        st.rerun()
-
-    if f.button("Excluir", key=f"del_{pid}"):
-        repos.delete_payment(st.session_state.user_id, pid)
-        st.rerun()
-
-    # >>> FORMULÁRIO DE EDIÇÃO
-    if st.session_state.edit_id == pid:
-        with st.form(f"edit_form_{pid}"):
-            n_desc = st.text_input("Descrição", value=desc)
-            n_val = st.number_input("Valor", value=float(amount), step=10.0)
-            n_venc = st.date_input(
-                "Vencimento",
-                value=datetime.fromisoformat(due).date()
-            )
-
-            col1, col2 = st.columns(2)
-            salvar = col1.form_submit_button("Salvar")
-            cancelar = col2.form_submit_button("Cancelar")
-
-        if salvar:
-            repos.update_payment(
+    if st.button("🔗 Unir fatura"):
+        if len(st.session_state.to_merge) > 1:
+            repos.merge_credit_group(
                 st.session_state.user_id,
-                pid,
-                n_desc,
-                n_val,
-                str(n_venc)
+                st.session_state.to_merge
             )
-            st.session_state.edit_id = None
+            st.success("Faturas unidas com sucesso.")
+            st.session_state.to_merge = []
+            st.rerun()
+        else:
+            st.warning("Selecione pelo menos 2 despesas.")
+
+    # >>> LISTAGEM DE DESPESAS
+    for r in rows:
+        pid, desc, amount, due, paid, _, _, cat_name, *_ = r
+
+        a0, a, b, c, d, e, f = st.columns([0.4, 3.6, 1.2, 1.8, 1.2, 1, 1])
+
+        # checkbox para unir fatura
+        if a0.checkbox("", key=f"chk_{pid}"):
+            if pid not in st.session_state.to_merge:
+                st.session_state.to_merge.append(pid)
+
+        a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
+        b.write(fmt_brl(amount))
+        c.write(format_date_br(due))
+        d.write("✅ Paga" if paid else "🕓 Em aberto")
+
+        if not paid:
+            if e.button("Marcar como paga", key=f"pay_{pid}"):
+                repos.mark_paid(st.session_state.user_id, pid, True)
+                st.rerun()
+        else:
+            if e.button("Desfazer", key=f"unpay_{pid}"):
+                repos.mark_paid(st.session_state.user_id, pid, False)
+                st.rerun()
+
+        if f.button("✏️ Editar", key=f"edit_{pid}"):
+            st.session_state.edit_id = pid
             st.rerun()
 
-        if cancelar:
-            st.session_state.edit_id = None
+        if f.button("Excluir", key=f"del_{pid}"):
+            repos.delete_payment(st.session_state.user_id, pid)
             st.rerun()
+
+        # >>> FORMULÁRIO DE EDIÇÃO
+        if st.session_state.edit_id == pid:
+            with st.form(f"edit_form_{pid}"):
+                n_desc = st.text_input("Descrição", value=desc)
+                n_val = st.number_input("Valor", value=float(amount), step=10.0)
+                n_venc = st.date_input(
+                    "Vencimento",
+                    value=datetime.fromisoformat(due).date()
+                )
+
+                col1, col2 = st.columns(2)
+                salvar = col1.form_submit_button("Salvar")
+                cancelar = col2.form_submit_button("Cancelar")
+
+            if salvar:
+                repos.update_payment(
+                    st.session_state.user_id,
+                    pid,
+                    n_desc,
+                    n_val,
+                    str(n_venc)
+                )
+                st.session_state.edit_id = None
+                st.rerun()
+
+            if cancelar:
+                st.session_state.edit_id = None
+                st.rerun()
+
 
 
     # ================= DASHBOARD =================
