@@ -42,7 +42,7 @@ def format_date_br(s):
 def is_admin():
     return st.session_state.username == ADMIN_USERNAME
 
-# ================= SESSION (CORRIGIDO) =================
+# ================= SESSION (FIXO) =================
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
 if "username" not in st.session_state:
@@ -50,9 +50,7 @@ if "username" not in st.session_state:
 if "edit_id" not in st.session_state:
     st.session_state.edit_id = None
 
-# msg_ok só existe quando for usada (não resetar aqui)
-
-# ================= AUTH =================
+# ================= AUTH (ORIGINAL RESTAURADO) =================
 def screen_auth():
     st.title("💳 Controle Financeiro")
 
@@ -67,10 +65,20 @@ def screen_auth():
             box-shadow: 0 6px 18px rgba(0,0,0,0.45);
             font-family: system-ui;
         ">
-            <strong>Aplicação desenvolvida por Carlos Martins</strong>
+            <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:22px">🔐</span>
+                <strong>Autenticação e autoria do projeto</strong>
+            </div>
+            <div style="margin-top:10px;font-size:14px">
+                Aplicação desenvolvida por <strong>Carlos Martins</strong>.<br>
+                Para dúvidas, sugestões ou suporte técnico:
+            </div>
+            <div style="margin-top:8px">
+                📧 <a href="mailto:cr954479@gmail.com" style="color:#60a5fa">cr954479@gmail.com</a>
+            </div>
         </div>
         ''',
-        height=80
+        height=170
     )
 
     t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
@@ -79,7 +87,7 @@ def screen_auth():
         u = st.text_input("Usuário", key="login_user")
         p = st.text_input("Senha", type="password", key="login_pass")
 
-        if st.button("Entrar"):
+        if st.button("Entrar", key="btn_login"):
             uid = authenticate(u, p)
             if uid:
                 st.session_state.user_id = uid
@@ -91,14 +99,19 @@ def screen_auth():
     with t2:
         u = st.text_input("Novo usuário", key="signup_user")
         p = st.text_input("Nova senha", type="password", key="signup_pass")
-        q = st.selectbox("Pergunta de segurança", [
-            "Qual o nome do seu primeiro pet?",
-            "Qual o nome da sua mãe?",
-            "Qual sua cidade de nascimento?"
-        ])
-        a = st.text_input("Resposta")
+        q = st.selectbox(
+            "Pergunta de segurança",
+            [
+                "Qual o nome do seu primeiro pet?",
+                "Qual o nome da sua mãe?",
+                "Qual sua cidade de nascimento?",
+                "Qual seu filme favorito?"
+            ],
+            key="signup_q"
+        )
+        a = st.text_input("Resposta", key="signup_answer")
 
-        if st.button("Criar conta"):
+        if st.button("Criar conta", key="btn_signup"):
             create_user(u, p, q, a)
             uid = authenticate(u, p)
             st.session_state.user_id = uid
@@ -116,7 +129,7 @@ def screen_auth():
             a = st.text_input("Resposta", key="reset_answer")
             np = st.text_input("Nova senha", type="password", key="reset_pass")
 
-            if st.button("Redefinir senha"):
+            if st.button("Redefinir senha", key="btn_reset"):
                 if reset_password(u, a, np):
                     st.success("Senha alterada!")
                 else:
@@ -139,12 +152,11 @@ def screen_app():
             st.divider()
             page = st.radio("Menu", ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"])
 
-            if st.button("Sair"):
+            if st.button("Sair", use_container_width=True):
                 st.session_state.user_id = None
                 st.session_state.username = None
                 st.rerun()
 
-        # Toast (15s)
         if "msg_ok" in st.session_state:
             st.toast(st.session_state.msg_ok, icon="✅", duration=15)
             del st.session_state.msg_ok
@@ -210,16 +222,14 @@ def screen_app():
                 st.session_state.msg_ok = "Despesa cadastrada com sucesso!"
                 st.rerun()
 
-            st.divider()
-
             for r in rows:
-                pid, desc_r, amount, due, paid, _, _, cat_name_r, *_ = r
-                a, b, c, d, e, f = st.columns([4,1,2,1,1,1])
+                pid, desc_r, amount, due, paid, *_ = r
+                a, b, c, d, e = st.columns([4,1,2,1,1])
                 a.write(desc_r)
                 b.write(fmt_brl(amount))
                 c.write(format_date_br(due))
 
-                if f.button("✏️ Editar", key=f"edit_{pid}"):
+                if e.button("✏️ Editar", key=f"edit_{pid}"):
                     st.session_state.edit_id = pid
                     st.rerun()
 
