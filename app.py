@@ -199,7 +199,7 @@ def screen_app():
         cat_names = ["(Sem categoria)"] + list(cat_map.keys())
 
         with st.expander("➕ Adicionar despesa", expanded=True):
-            with st.form("form_add_despesa"):
+            with st.form("form_add_despesa", clear_on_submit=True):
                 a1, a2, a3, a4, a5 = st.columns([3, 1, 1.3, 2, 1])
 
                 desc = a1.text_input("Descrição")
