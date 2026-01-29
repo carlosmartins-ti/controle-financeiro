@@ -1,359 +1,291 @@
-import datetime
-from database import get_connection
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+from datetime import date, datetime
+import streamlit.components.v1 as components
 
-def _now():
-    return datetime.datetime.now().isoformat(timespec="seconds")
+from database import init_db
+from auth import authenticate, create_user, get_security_question, reset_password
+import repos
 
-# -------------------- Default Categories --------------------
-DEFAULT_CATEGORIES = [
-    "Aluguel",
-    "Condomínio",
-    "Água",
-    "Luz",
-    "Plano celular",
-    "Internet",
-    "Supermercado",
-    "Restaurante",
-    "Delivery / iFood",
-    "Refeição trabalho",
-    "TV / Streaming",
-    "Transporte",
-    "Cartão de crédito",
-    "Contas fixas",
-    "Lazer",
-    "Saúde",
-    "Educação",
-    "Poupança",
-    "Roupas",
-    "Calçados",
-    "Cosméticos",
-    "Farmácia",
-    "Academia",
-    "Barbeiro / Salão",
-    "Cinema",
-    "Viagem",
-    "Passeios",
-    "Jogos",
-    "Bares / festas",
-    "Faculdade",
-    "Móveis",
-    "Outros",
-    "Imprevistos",
+# ================= SETUP =================
+st.set_page_config(
+    page_title="Controle Financeiro",
+    page_icon="💳",
+    layout="wide"
+)
+
+with open("style.css", "r", encoding="utf-8") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+init_db()
+
+ADMIN_USERNAME = "carlos.martins"
+
+MESES = [
+    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
 ]
 
-# -------------------- Categories --------------------
-def list_categories(user_id: int):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, name FROM categories WHERE user_id = ? ORDER BY name",
-        (user_id,)
-    )
-    rows = cur.fetchall()
-    conn.close()
-    return rows
+# ================= UTILS =================
+def fmt_brl(v):
+    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-def create_category(user_id: int, name: str):
-    name = (name or "").strip()
-    if not name:
-        raise ValueError("Nome da categoria é obrigatório.")
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO categories (user_id, name, created_at) VALUES (?, ?, ?)",
-        (user_id, name, _now())
-    )
-    conn.commit()
-    conn.close()
+def format_date_br(s):
+    if not s:
+        return ""
+    try:
+        return datetime.fromisoformat(str(s)).strftime("%d/%m/%Y")
+    except:
+        return str(s)
 
-def delete_category(user_id: int, category_id: int):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "UPDATE payments SET category_id = NULL WHERE user_id = ? AND category_id = ?",
-        (user_id, category_id)
-    )
-    cur.execute(
-        "DELETE FROM categories WHERE user_id = ? AND id = ?",
-        (user_id, category_id)
-    )
-    conn.commit()
-    conn.close()
+def is_admin():
+    return st.session_state.username == ADMIN_USERNAME
 
-def seed_default_categories(user_id: int):
-    """
-    Cria categorias padrão para o usuário, se ainda não existirem.
-    Compatível com seu schema (categories.created_at NOT NULL).
-    Pode ser chamada várias vezes sem duplicar.
-    """
-    if user_id is None:
+# ================= SESSION =================
+for k in ["user_id", "username", "edit_id"]:
+    if k not in st.session_state:
+        st.session_state[k] = None
+
+# ================= AUTH =================
+def screen_auth():
+    st.title("💳 Controle Financeiro")
+
+    components.html(
+        """
+        <div style="
+            background: linear-gradient(135deg, #1f2937, #111827);
+            border-radius: 12px;
+            padding: 16px;
+            margin: 14px 0;
+            color: #e5e7eb;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+            font-family: system-ui;
+        ">
+            <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:22px">🔐</span>
+                <strong>Autenticação e autoria do projeto</strong>
+            </div>
+            <div style="margin-top:10px;font-size:14px">
+                Aplicação desenvolvida por <strong>Carlos Martins</strong>.<br>
+                Para dúvidas, sugestões ou suporte técnico:
+            </div>
+            <div style="margin-top:8px">
+                📧 <a href="mailto:cr954479@gmail.com" style="color:#60a5fa">cr954479@gmail.com</a>
+            </div>
+        </div>
+        """,
+        height=170
+    )
+
+    t1, t2, t3 = st.tabs(["Entrar", "Criar conta", "Recuperar senha"])
+
+    with t1:
+        u = st.text_input("Usuário", key="login_user")
+        p = st.text_input("Senha", type="password", key="login_pass")
+
+        if st.button("Entrar", key="btn_login"):
+            uid = authenticate(u, p)
+            if uid:
+                st.session_state.user_id = uid
+                st.session_state.username = u.strip().lower()
+                st.rerun()
+            else:
+                st.error("Usuário ou senha inválidos.")
+
+    with t2:
+        u = st.text_input("Novo usuário", key="signup_user")
+        p = st.text_input("Nova senha", type="password", key="signup_pass")
+        q = st.selectbox(
+            "Pergunta de segurança",
+            [
+                "Qual o nome do seu primeiro pet?",
+                "Qual o nome da sua mãe?",
+                "Qual sua cidade de nascimento?",
+                "Qual seu filme favorito?"
+            ],
+            key="signup_q"
+        )
+        a = st.text_input("Resposta", key="signup_answer")
+
+        if st.button("Criar conta", key="btn_signup"):
+            create_user(u, p, q, a)
+            uid = authenticate(u, p)
+            st.session_state.user_id = uid
+            st.session_state.username = u.strip().lower()
+            repos.seed_default_categories(uid)
+            st.success("Conta criada com sucesso.")
+            st.rerun()
+
+    with t3:
+        u = st.text_input("Usuário", key="reset_user")
+        q = get_security_question(u) if u else None
+
+        if q:
+            st.info(q)
+            a = st.text_input("Resposta", key="reset_answer")
+            np = st.text_input("Nova senha", type="password", key="reset_pass")
+
+            if st.button("Redefinir senha", key="btn_reset"):
+                if reset_password(u, a, np):
+                    st.success("Senha alterada!")
+                else:
+                    st.error("Resposta incorreta.")
+
+# ================= APP =================
+def screen_app():
+    if not st.session_state.user_id:
+        st.error("Usuário não autenticado.")
         return
 
-    conn = get_connection()
-    cur = conn.cursor()
+    with st.sidebar:
+        st.markdown(f"**Usuário:** {st.session_state.username}")
+        if is_admin():
+            st.caption("🔑 Administrador")
 
-    for name in DEFAULT_CATEGORIES:
-        cur.execute(
-            """
-            INSERT INTO categories (user_id, name, created_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(user_id, name) DO NOTHING
-            """,
-            (user_id, name, _now())
+        today = date.today()
+        month_label = st.selectbox("Mês", MESES, index=today.month - 1)
+        year = st.selectbox("Ano", list(range(today.year - 2, today.year + 3)), index=2)
+        month = MESES.index(month_label) + 1
+
+        st.divider()
+        page = st.radio(
+            "Menu",
+            ["📊 Dashboard", "🧾 Despesas", "🏷️ Categorias", "💰 Planejamento"]
         )
 
-    conn.commit()
-    conn.close()
+        if st.button("Sair", use_container_width=True):
+            st.session_state.user_id = None
+            st.session_state.username = None
+            st.rerun()
 
+    repos.seed_default_categories(st.session_state.user_id)
 
-# -------------------- Payments / Despesas --------------------
-def add_payment(
-    user_id: int,
-    description: str,
-    amount: float,
-    due_date: str,
-    month: int,
-    year: int,
-    category_id=None,
-    is_credit: int = 0,
-    installments: int = 1
-):
-    description = (description or "").strip()
-    if not description:
-        raise ValueError("Descrição é obrigatória.")
-    if amount <= 0:
-        raise ValueError("Valor deve ser maior que zero.")
+    rows = repos.list_payments(st.session_state.user_id, month, year)
+    df = pd.DataFrame(
+        rows,
+        columns=[
+            "id", "Descrição", "Valor", "Vencimento", "Pago", "Data pagamento",
+            "CategoriaID", "Categoria", "is_credit", "installments",
+            "installment_index", "credit_group"
+        ]
+    )
 
-    conn = get_connection()
-    cur = conn.cursor()
+    total = df["Valor"].sum() if not df.empty else 0
+    pago = df[df["Pago"] == 1]["Valor"].sum() if not df.empty else 0
+    aberto = total - pago
 
-    if not is_credit or installments == 1:
-        cur.execute(
-            """INSERT INTO payments
-               (user_id, description, category_id, amount, due_date,
-                month, year, paid, paid_date, created_at,
-                is_credit, installments, installment_index, credit_group)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, 0, 1, 1, NULL)""",
-            (user_id, description, category_id, amount, due_date, month, year, _now())
-        )
-    else:
-        cur.execute("SELECT COALESCE(MAX(credit_group),0)+1 FROM payments")
-        group_id = cur.fetchone()[0]
+    budget = repos.get_budget(st.session_state.user_id, month, year)
+    renda = float(budget["income"])
+    saldo = renda - total
 
-        parcela_valor = round(amount / installments, 2)
+    st.title("💳 Controle Financeiro")
+    st.caption(f"Período: **{month_label}/{year}**")
 
-        for i in range(installments):
-            m = month + i
-            y = year
-            if m > 12:
-                m -= 12
-                y += 1
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total do mês", fmt_brl(total))
+    c2.metric("Pago", fmt_brl(pago))
+    c3.metric("Em aberto", fmt_brl(aberto))
+    c4.metric("Saldo", fmt_brl(saldo))
 
-            cur.execute(
-                """INSERT INTO payments
-                   (user_id, description, category_id, amount, due_date,
-                    month, year, paid, paid_date, created_at,
-                    is_credit, installments, installment_index, credit_group)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, 1, ?, ?, ?)""",
-                (
-                    user_id,
-                    f"{description} ({i+1}/{installments})",
-                    category_id,
-                    parcela_valor,
-                    due_date,
-                    m,
-                    y,
-                    _now(),
-                    installments,
-                    i + 1,
-                    group_id
+    st.divider()
+
+    # ================= DESPESAS =================
+    if page == "🧾 Despesas":
+        st.subheader("🧾 Despesas")
+
+        cats = repos.list_categories(st.session_state.user_id)
+        cat_map = {name: cid for cid, name in cats}
+        cat_names = ["(Sem categoria)"] + list(cat_map.keys())
+
+        with st.expander("➕ Adicionar despesa", expanded=True):
+            with st.form("form_add_despesa", clear_on_submit=True):
+                a1, a2, a3, a4, a5 = st.columns([3, 1, 1.3, 2, 1])
+
+                desc = a1.text_input("Descrição")
+                val = a2.number_input("Valor (R$)", min_value=0.0, step=10.0)
+                venc = a3.date_input("Vencimento", value=date.today(), format="DD/MM/YYYY")
+                cat_name = a4.selectbox("Categoria", cat_names)
+                parcelas = a5.number_input("Parcelas", min_value=1, step=1, value=1)
+
+                submitted = st.form_submit_button("Adicionar")
+
+            if submitted:
+                cid = None if cat_name == "(Sem categoria)" else cat_map[cat_name]
+                repos.add_payment(
+                    st.session_state.user_id,
+                    desc,
+                    val,
+                    str(venc),
+                    month,
+                    year,
+                    cid,
+                    is_credit=1 if parcelas > 1 else 0,
+                    installments=parcelas
                 )
-            )
+                st.success("Despesa adicionada!")
+                st.rerun()
 
-    conn.commit()
-    conn.close()
+        st.divider()
 
-def list_payments(user_id: int, month: int, year: int):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        """SELECT p.id, p.description, p.amount, p.due_date, p.paid, p.paid_date,
-                  p.category_id, c.name,
-                  p.is_credit, p.installments, p.installment_index, p.credit_group
-           FROM payments p
-           LEFT JOIN categories c ON c.id = p.category_id
-           WHERE p.user_id = ? AND p.month = ? AND p.year = ?
-           ORDER BY p.paid ASC, p.due_date ASC, p.id DESC""",
-        (user_id, month, year)
-    )
-    rows = cur.fetchall()
-    conn.close()
-    return rows
+        if not df.empty:
+            for r in rows:
+                pid, desc, amount, due, paid, _, _, cat_name, *_ = r
+                a, b, c, d, e, f = st.columns([4, 1.2, 1.8, 1.2, 1.2, 1])
 
-def mark_paid(user_id: int, payment_id: int, paid: bool):
-    conn = get_connection()
-    cur = conn.cursor()
+                a.write(f"**{desc}**" + (f"  \n🏷️ {cat_name}" if cat_name else ""))
+                b.write(fmt_brl(amount))
+                c.write(format_date_br(due))
+                d.write("✅ Paga" if paid else "🕓 Em aberto")
 
-    if paid:
-        cur.execute(
-            "UPDATE payments SET paid = 1, paid_date = ? WHERE user_id = ? AND id = ?",
-            (_now(), user_id, payment_id)
-        )
-    else:
-        cur.execute(
-            "UPDATE payments SET paid = 0, paid_date = NULL WHERE user_id = ? AND id = ?",
-            (user_id, payment_id)
-        )
+                if f.button("✏️ Editar", key=f"edit_{pid}"):
+                    st.session_state.edit_id = pid
+                    st.rerun()
 
-    conn.commit()
-    conn.close()
+                if st.session_state.edit_id == pid:
+                    with st.form(f"edit_form_{pid}", clear_on_submit=False):
+                        n_desc = st.text_input("Descrição", value=desc)
+                        n_val = st.number_input("Valor", value=float(amount), step=10.0)
+                        n_venc = st.date_input(
+                            "Vencimento",
+                            value=datetime.fromisoformat(due).date()
+                        )
 
-def delete_payment(user_id: int, payment_id: int):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "DELETE FROM payments WHERE user_id = ? AND id = ?",
-        (user_id, payment_id)
-    )
-    conn.commit()
-    conn.close()
+                        cats_edit = repos.list_categories(st.session_state.user_id)
+                        cat_map_edit = {name: cid for cid, name in cats_edit}
+                        cat_names_edit = ["(Sem categoria)"] + list(cat_map_edit.keys())
 
-# -------------------- Fatura Cartão --------------------
-def mark_credit_invoice_paid(user_id: int, month: int, year: int):
-    conn = get_connection()
-    cur = conn.cursor()
+                        current_cat = cat_name if cat_name in cat_map_edit else "(Sem categoria)"
 
-    cur.execute(
-        """
-        UPDATE payments
-        SET paid = 1,
-            paid_date = ?
-        WHERE user_id = ?
-          AND month = ?
-          AND year = ?
-          AND category_id IN (
-              SELECT id FROM categories
-              WHERE user_id = ?
-                AND LOWER(name) LIKE '%cart%'
-          )
-        """,
-        (_now(), user_id, month, year, user_id)
-    )
+                        n_cat_name = st.selectbox(
+                            "Categoria",
+                            cat_names_edit,
+                            index=cat_names_edit.index(current_cat)
+                        )
 
-    conn.commit()
-    conn.close()
+                        col1, col2 = st.columns(2)
+                        salvar = col1.form_submit_button("Salvar")
+                        cancelar = col2.form_submit_button("Cancelar")
 
-def unmark_credit_invoice_paid(user_id: int, month: int, year: int):
-    conn = get_connection()
-    cur = conn.cursor()
+                    if salvar:
+                        cid = None if n_cat_name == "(Sem categoria)" else cat_map_edit[n_cat_name]
+                        repos.update_payment(
+                            st.session_state.user_id,
+                            pid,
+                            n_desc,
+                            n_val,
+                            str(n_venc),
+                            cid
+                        )
+                        st.session_state.edit_id = None
+                        st.rerun()
 
-    cur.execute(
-        """
-        UPDATE payments
-        SET paid = 0,
-            paid_date = NULL
-        WHERE user_id = ?
-          AND month = ?
-          AND year = ?
-          AND category_id IN (
-              SELECT id FROM categories
-              WHERE user_id = ?
-                AND LOWER(name) LIKE '%cart%'
-          )
-        """,
-        (user_id, month, year, user_id)
-    )
+                    if cancelar:
+                        st.session_state.edit_id = None
+                        st.rerun()
 
-    conn.commit()
-    conn.close()
-
-# -------------------- Budget --------------------
-def get_budget(user_id: int, month: int, year: int):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT income, expense_goal FROM budgets WHERE user_id = ? AND month = ? AND year = ?",
-        (user_id, month, year)
-    )
-    row = cur.fetchone()
-    conn.close()
-    if row:
-        return {"income": float(row[0]), "expense_goal": float(row[1])}
-    return {"income": 0.0, "expense_goal": 0.0}
-
-def upsert_budget(user_id: int, month: int, year: int, income: float, expense_goal: float):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        """INSERT INTO budgets (user_id, month, year, income, expense_goal, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)
-           ON CONFLICT(user_id, month, year)
-           DO UPDATE SET income = excluded.income,
-                         expense_goal = excluded.expense_goal""",
-        (user_id, month, year, income, expense_goal, _now())
-    )
-    conn.commit()
-    conn.close()
-    # -------------------- Unir Fatura Cartão --------------------
-def merge_credit_group(user_id: int, payment_ids: list[int]):
-    if not payment_ids:
-        return
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    # gera um novo grupo (compatível com seu schema atual)
-    cur.execute("SELECT COALESCE(MAX(credit_group), 0) + 1 FROM payments")
-    new_group = cur.fetchone()[0]
-
-    for pid in payment_ids:
-        cur.execute(
-            """
-            UPDATE payments
-            SET credit_group = ?, is_credit = 1
-            WHERE user_id = ? AND id = ?
-            """,
-            (new_group, user_id, pid)
-        )
-
-    conn.commit()
-    conn.close()
-    # -------------------- Update Payment --------------------
-def update_payment(
-    user_id: int,
-    payment_id: int,
-    description: str,
-    amount: float,
-    due_date: str
-):
-    from datetime import datetime
-
-    d = datetime.fromisoformat(due_date)
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        """
-        UPDATE payments
-        SET description = ?,
-            amount = ?,
-            due_date = ?,
-            month = ?,
-            year = ?
-        WHERE user_id = ?
-          AND id = ?
-        """,
-        (
-            description,
-            amount,
-            due_date,
-            d.month,
-            d.year,
-            user_id,
-            payment_id
-        )
-    )
-
-    conn.commit()
-    conn.close()
+# ================= ROUTER =================
+if st.session_state.user_id is None:
+    screen_auth()
+else:
+    screen_app()
